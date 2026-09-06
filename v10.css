@@ -304,3 +304,20 @@ body.leagueSimulatorMode .historyDock{display:none!important}
   .leagueRunControls{grid-template-columns:1fr}
   .leagueRunControls button{grid-column:auto}
 }
+
+/* Compact month/day navigation for provisional results. */
+.leagueFixtureGroup{min-width:0;margin:0;padding:0;border:1px solid #35353b;border-radius:6px;overflow:hidden}
+.leagueFixtureGroup>summary{display:flex;align-items:center;gap:8px;min-height:44px;padding:8px 10px;cursor:pointer;list-style:none;background:#202024;font-size:13px;font-weight:800}
+.leagueFixtureGroup>summary::-webkit-details-marker{display:none}
+.leagueFixtureGroup>summary::before{content:'▶';font-size:10px;color:#d7c767}
+.leagueFixtureGroup[open]>summary::before{content:'▼'}
+.leagueFixtureGroup>summary>small{margin-left:auto;color:#aaaab2;font-size:11px;font-weight:500;white-space:nowrap}
+.leagueFixtureGroup>summary:focus-visible{outline:2px solid #d7c767;outline-offset:-2px}
+.leagueFixtureGroupBody{display:grid;gap:6px;padding:6px}
+.leagueFixtureDay>summary{background:#17171b}
+@media(max-width:480px){
+  .leagueDisclosure>.leagueFixtureList{padding:8px}
+  .leagueFixtureGroupBody{padding:4px;gap:4px}
+  .leagueFixtureGroup>summary{padding:8px}
+  .leagueFixtureDay .leagueFixtureMeta{grid-template-columns:42px minmax(0,1fr)}
+}

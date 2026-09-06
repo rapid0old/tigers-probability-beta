@@ -8,6 +8,8 @@ const simulator = new SeasonSimulator({snapshot: LEAGUE_SNAPSHOT_2026, probabili
 let activeLeague = LEAGUES.CENTRAL;
 let latestResult = null;
 let runTimer = 0;
+// Presentation state only; never persisted with result overrides.
+const fixtureExpansion = new Map();
 
 const byId = id => document.getElementById(id);
 
@@ -100,13 +102,16 @@ function fixtureDate(game) {
 }
 
 function renderFixtures() {
+  byId('leagueFixtureList').querySelectorAll('[data-fixture-section]').forEach(details => {
+    fixtureExpansion.set(details.dataset.fixtureSection, details.open);
+  });
   const fixtures = leagueGames()
     .filter(game => game.status !== 'FINAL')
     .sort((a, b) => (a.date || '9999-12-31').localeCompare(b.date || '9999-12-31') || a.id.localeCompare(b.id));
   const count = overrideCountForLeague();
   byId('leagueRemainingCount').textContent = `（残り${fixtures.length}試合・入力${count}）`;
   byId('clearLeagueOverrides').disabled = count === 0;
-  byId('leagueFixtureList').innerHTML = fixtures.map(game => {
+  const renderRows = games => games.map(game => {
     const value = overrides[game.id]?.result || '';
     return `<div class="leagueFixtureRow ${value ? 'hasOverride' : ''}">
       <div class="leagueFixtureMeta"><time>${fixtureDate(game)}</time><span>${teamName(game.homeTeamId)} <b>vs</b> ${teamName(game.awayTeamId)}</span><small>${game.venue || '球場未定'}</small></div>
@@ -120,6 +125,43 @@ function renderFixtures() {
       </label>
     </div>`;
   }).join('');
+  const today = new Intl.DateTimeFormat('sv-SE', {timeZone: 'Asia/Tokyo'}).format(new Date());
+  const months = new Map();
+  const pending = [];
+  for (const game of fixtures) {
+    if (game.status === 'PENDING_RESCHEDULE' || !game.date) {
+      pending.push(game);
+      continue;
+    }
+    const month = game.date.slice(0, 7);
+    if (!months.has(month)) months.set(month, new Map());
+    const days = months.get(month);
+    if (!days.has(game.date)) days.set(game.date, []);
+    days.get(game.date).push(game);
+  }
+  const section = (key, title, games, content, defaultOpen, kind) => {
+    const stateKey = `${activeLeague}:${key}`;
+    const open = fixtureExpansion.get(stateKey) ?? defaultOpen;
+    const entered = games.filter(game => overrides[game.id]?.result).length;
+    return `<details class="leagueFixtureGroup ${kind}" data-fixture-section="${stateKey}" ${open ? 'open' : ''}>
+      <summary><span>${title}</span><small>入力済 ${entered} / ${games.length}</small></summary>
+      <div class="leagueFixtureGroupBody">${content}</div>
+    </details>`;
+  };
+  byId('leagueFixtureList').innerHTML = [...months].map(([month, days]) => {
+    const content = [...days].map(([date, games]) => {
+      const [, m, d] = date.split('-');
+      const weekday = new Intl.DateTimeFormat('ja-JP', {weekday: 'short', timeZone: 'Asia/Tokyo'}).format(new Date(`${date}T12:00:00+09:00`));
+      return section(date, `${Number(m)}/${Number(d)}（${weekday}）`, games, renderRows(games), date === today, 'leagueFixtureDay');
+    }).join('');
+    return section(month, `${Number(month.slice(5))}月`, [...days.values()].flat(), content, month === today.slice(0, 7), 'leagueFixtureMonth');
+  }).join('') + (pending.length ? section('pending', '振替日未定', pending, renderRows(pending), false, 'leagueFixturePending') : '');
+  // Listen on each current element so queued toggle events from replaced nodes cannot overwrite state.
+  byId('leagueFixtureList').querySelectorAll('[data-fixture-section]').forEach(details => {
+    details.addEventListener('toggle', () => {
+      if (details.isConnected) fixtureExpansion.set(details.dataset.fixtureSection, details.open);
+    });
+  });
 }
 
 function renderModelDetails() {
