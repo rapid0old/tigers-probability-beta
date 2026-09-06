@@ -1,0 +1,28 @@
+const CACHE='tigers-probability-v3.0.0-league-baseline-1';
+const CORE=['./','./index.html','./manifest.webmanifest','./icon.svg','./v10.css','./rosters.js','./stats-v13.js','./app-v10.js','./vendor/supabase-2.112.4.js','./supabase-config.js','./game-log-v3.js','./league-data-2026.mjs','./league-simulator-core.mjs','./league-simulator-ui.mjs'];
+
+self.addEventListener('install',event=>{
+  event.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE)));
+  self.skipWaiting();
+});
+self.addEventListener('activate',event=>{
+  event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))));
+  self.clients.claim();
+});
+self.addEventListener('fetch',event=>{
+  if(event.request.method!=='GET') return;
+  const url=new URL(event.request.url);
+  if(url.origin!==self.location.origin) return;
+  if(!CORE.some(asset=>new URL(asset,self.location.href).pathname===url.pathname)) return;
+  if(event.request.mode==='navigate'){
+    event.respondWith(
+      fetch(event.request).then(r=>{
+        const copy=r.clone(); caches.open(CACHE).then(c=>c.put('./index.html',copy)); return r;
+      }).catch(()=>caches.match('./index.html'))
+    );
+    return;
+  }
+  event.respondWith(caches.match(event.request).then(cached=>cached||fetch(event.request).then(r=>{
+    const copy=r.clone(); caches.open(CACHE).then(c=>c.put(event.request,copy)); return r;
+  })));
+});

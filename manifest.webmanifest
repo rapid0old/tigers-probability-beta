@@ -1,0 +1,10 @@
+{
+  "name": "阪神 試合確率チェッカー",
+  "short_name": "阪神確率",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0f0f10",
+  "theme_color": "#111111",
+  "description": "試合中の確率表示と入力を維持し、認証済みユーザーの試合原始ログを安全に長期保存できる私的利用PWA"
+}
