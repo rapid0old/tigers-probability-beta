@@ -166,11 +166,13 @@ function renderFixtures() {
 
 function renderModelDetails() {
   const detail = model.describe();
+  const [year, month, day] = LEAGUE_SNAPSHOT_2026.through.split('-').map(Number);
+  const completedGames = LEAGUE_SNAPSHOT_2026.games.filter(game => game.status === 'FINAL').length;
   const ratingRows = LEAGUE_SNAPSHOT_2026.teams
     .map(team => `<div><span>${team.name}</span><strong>${detail.ratings[team.id].toFixed(1)}</strong></div>`)
     .join('');
   byId('leagueModelDetails').innerHTML = `
-    <p><strong>方式</strong> 2026年9月4日までの公式727試合を時系列に学習したElo。初期1500、K=20、ホーム補正+35。残り試合の計算中はratingを更新しない固定方式です。</p>
+    <p><strong>方式</strong> ${year}年${month}月${day}日までの公式${completedGames}試合を時系列に学習したElo。初期1500、K=20、ホーム補正+35。残り試合の計算中はratingを更新しない固定方式です。</p>
     <p><strong>引分</strong> 各リーグの2026年実績を、当季全球団の実績へ120試合分だけ縮約して推定。セ ${percent(detail.tieProbabilities.CENTRAL * 100)}、パ ${percent(detail.tieProbabilities.PACIFIC * 100)}。</p>
     <p><strong>順位</strong> 勝率は引分を除外。セは勝率、勝数、直接対戦、リーグ内勝率、前年順位。パは勝率、直接対戦、リーグ内勝率、前年順位の順です。</p>
     <div class="leagueRatingGrid">${ratingRows}</div>
