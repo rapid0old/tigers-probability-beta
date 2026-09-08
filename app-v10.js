@@ -22,7 +22,6 @@ let pendingRunnerPlay = null;
 let openDockPanel = '';
 let dockProxyClick = false;
 let lastCalculationDetail = null;
-let lineupDrag = null;
 const pendingControlHistory = new WeakMap();
 const dockControlHistory = new WeakMap();
 
@@ -323,26 +322,18 @@ function moveLineupSlot(grid,from,to){
   refreshBatterPosLabels();refreshRunnerOptions();scheduleUpdate();setLastAction(`${TEAM_NAME[team]}の${from+1}番を${to+1}番へ移動`);
   const row=grid.querySelector(`[data-lineup-index="${to}"]`);if(row){row.classList.remove('lineupMoved');requestAnimationFrame(()=>row.classList.add('lineupMoved'));setTimeout(()=>row.classList.remove('lineupMoved'),420)}
 }
-function clearLineupDrag(){
-  document.querySelectorAll('.lineupOrderRow.dragging,.lineupOrderRow.dragTarget').forEach(row=>row.classList.remove('dragging','dragTarget'));lineupDrag=null;
-}
 function decorateLineupReordering(){
   for(const gridId of ['tigersLineup','oppLineup']){
-    const grid=$(gridId);if(!grid||grid.querySelector('.lineupOrderRow'))continue;
+    const grid=$(gridId);if(!grid||grid.querySelector('.lineupOrderItem'))continue;
     const slots=[...grid.children].filter(child=>child.classList.contains('slot'));
     slots.forEach((slot,index)=>{
       const select=$(slot.dataset.for),picker=select?.parentElement?.classList.contains('searchSelect')?select.parentElement:select;if(!select||!picker)return;
-      const row=document.createElement('div');row.className='lineupOrderRow';row.dataset.lineupIndex=String(index);grid.insertBefore(row,slot);row.append(slot,picker);
+      const item=document.createElement('div');item.className='lineupOrderItem';item.dataset.lineupIndex=String(index);grid.insertBefore(item,slot);
+      const header=document.createElement('div');header.className='lineupOrderHeader';
       const controls=document.createElement('div');controls.className='lineupOrderControls';
-      const handle=document.createElement('button');handle.type='button';handle.className='lineupDragHandle';handle.textContent='≡';handle.draggable=true;handle.title='ドラッグして打順を移動';handle.setAttribute('aria-label',`${index+1}番をドラッグして移動`);
       const up=document.createElement('button');up.type='button';up.className='lineupMoveButton';up.textContent='↑';up.title='一つ上へ';up.setAttribute('aria-label',`${index+1}番を一つ上へ`);up.disabled=index===0;up.onclick=()=>moveLineupSlot(grid,index,index-1);
       const down=document.createElement('button');down.type='button';down.className='lineupMoveButton';down.textContent='↓';down.title='一つ下へ';down.setAttribute('aria-label',`${index+1}番を一つ下へ`);down.disabled=index===8;down.onclick=()=>moveLineupSlot(grid,index,index+1);
-      handle.addEventListener('dragstart',event=>{lineupDrag={grid,from:index};row.classList.add('dragging');event.dataTransfer.effectAllowed='move';event.dataTransfer.setData('text/plain',String(index))});
-      handle.addEventListener('dragend',clearLineupDrag);
-      row.addEventListener('dragover',event=>{if(lineupDrag?.grid!==grid)return;event.preventDefault();event.dataTransfer.dropEffect='move';row.classList.add('dragTarget')});
-      row.addEventListener('dragleave',()=>row.classList.remove('dragTarget'));
-      row.addEventListener('drop',event=>{if(lineupDrag?.grid!==grid)return;event.preventDefault();const from=lineupDrag.from;clearLineupDrag();moveLineupSlot(grid,from,index)});
-      controls.append(handle,up,down);row.appendChild(controls);
+      controls.append(up,down);header.append(slot,controls);item.append(header,picker);
     });
   }
 }

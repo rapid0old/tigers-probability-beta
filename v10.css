@@ -106,17 +106,16 @@ body .toast{bottom:calc(142px + env(safe-area-inset-bottom))}
 .searchSelect{display:flex;gap:6px;align-items:stretch;min-width:0;width:100%}
 .searchSelect select{min-width:0;flex:1}
 .searchTrigger{flex:0 0 48px;padding:8px 4px;font-size:12px;min-height:44px}
-.playerSettingsDetails .lineupGrid{display:flex;flex-direction:column;gap:7px}
-.lineupOrderRow{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:7px;align-items:center;border-radius:6px;transition:background-color .16s ease,outline-color .16s ease}
-.lineupOrderRow .slot{align-self:stretch;display:grid;place-items:center}
-.lineupOrderControls{display:grid;grid-template-columns:34px 34px 34px;gap:4px}
-.lineupDragHandle,.lineupMoveButton{width:34px;height:44px;min-width:34px;padding:0;display:grid;place-items:center;font-size:18px;line-height:1;background:var(--card2);border:1px solid var(--line);color:var(--muted)}
-.lineupDragHandle{cursor:grab;font-size:20px}
-.lineupDragHandle:active{cursor:grabbing}
+.playerSettingsDetails .lineupGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 10px;align-items:start}
+.lineupOrderItem{min-width:0;border-radius:6px;transition:background-color .16s ease}
+.lineupOrderHeader{display:flex;align-items:center;justify-content:space-between;gap:4px;min-height:28px;margin-bottom:4px}
+.lineupOrderHeader .slot{text-align:left;font-weight:750}
+.lineupOrderControls{display:flex;gap:3px}
+.lineupMoveButton{width:28px;height:28px;min-width:28px;padding:0;display:grid;place-items:center;font-size:15px;line-height:1;background:var(--card2);border:1px solid var(--line);color:var(--muted)}
 .lineupMoveButton:disabled{opacity:.28;cursor:default}
-.lineupOrderRow.dragging{opacity:.52}
-.lineupOrderRow.dragTarget{outline:2px solid rgba(255,205,44,.72);background:rgba(255,205,44,.08)}
-.lineupOrderRow.lineupMoved{background:rgba(78,190,116,.14)}
+.lineupOrderItem.lineupMoved{background:rgba(78,190,116,.14)}
+.lineupOrderItem .searchSelect{gap:4px}
+.lineupOrderItem .searchTrigger{flex-basis:40px;min-width:40px;padding-left:3px;padding-right:3px}
 .lastActionStatus{margin-top:9px;padding:10px 12px;border-left:3px solid var(--accent);background:#111114;color:#dedee2;font-size:12px;line-height:1.5;min-height:38px}
 .playerSearchDialog,.stealDialog,.gameResultDialog,.runnerAdvanceDialog{width:min(500px,calc(100% - 24px));max-height:min(720px,calc(100dvh - 28px));color:var(--text);background:var(--card);border:1px solid #55555c;border-radius:8px;padding:16px;box-shadow:0 18px 55px rgba(0,0,0,.65)}
 .playerSearchDialog::backdrop,.stealDialog::backdrop,.gameResultDialog::backdrop,.runnerAdvanceDialog::backdrop{background:rgba(0,0,0,.76)}
@@ -331,9 +330,4 @@ body.leagueSimulatorMode .historyDock{display:none!important}
   .leagueFixtureGroupBody{padding:4px;gap:4px}
   .leagueFixtureGroup>summary{padding:8px}
   .leagueFixtureDay .leagueFixtureMeta{grid-template-columns:42px minmax(0,1fr)}
-}
-@media(pointer:coarse){
-  .lineupOrderControls{grid-template-columns:40px 40px}
-  .lineupDragHandle{display:none}
-  .lineupMoveButton{width:40px;min-width:40px}
 }
