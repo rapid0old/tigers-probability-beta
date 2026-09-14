@@ -185,7 +185,7 @@ async function runSimulation() {
   const status = byId('leagueRunStatus');
   button.disabled = true;
   status.textContent = '計算中...';
-  await new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 0)));
+  await new Promise(resolve => setTimeout(resolve, 0));
   const started = performance.now();
   try {
     latestResult = simulator.simulate({
