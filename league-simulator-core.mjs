@@ -4,6 +4,8 @@ export const GAME_RESULTS = Object.freeze({
   TIE: 'TIE',
 });
 
+export const CANCELED_OVERRIDE = 'CANCELED';
+
 export const LEAGUES = Object.freeze({CENTRAL: 'CENTRAL', PACIFIC: 'PACIFIC'});
 
 const VALID_RESULTS = new Set(Object.values(GAME_RESULTS));
@@ -336,6 +338,7 @@ export class SeasonSimulator {
         applyResult(baseState, homeIndex, awayIndex, override, sameLeague, this.teamCount);
         report.push({gameId: game.id, status: 'APPLIED', override});
       } else {
+        if (override === CANCELED_OVERRIDE) report.push({gameId: game.id, status: 'PENDING_RESCHEDULE', override});
         remaining.push({game, homeIndex, awayIndex, sameLeague, probabilities: this.probabilityModel.predict(game)});
       }
     }

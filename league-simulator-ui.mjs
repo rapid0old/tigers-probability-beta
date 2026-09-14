@@ -1,5 +1,5 @@
 import {LEAGUE_SNAPSHOT_2026} from './league-data-2026.mjs';
-import {GAME_RESULTS, LEAGUES, LeagueBaselineModel, SeasonSimulator} from './league-simulator-core.mjs';
+import {CANCELED_OVERRIDE, GAME_RESULTS, LEAGUES, LeagueBaselineModel, SeasonSimulator} from './league-simulator-core.mjs?v=canceled-1';
 
 const STORAGE_KEY = 'tigersLeagueSimulatorOverridesV1';
 const teamById = new Map(LEAGUE_SNAPSHOT_2026.teams.map(team => [team.id, team]));
@@ -113,7 +113,7 @@ function renderFixtures() {
   byId('clearLeagueOverrides').disabled = count === 0;
   const renderRows = games => games.map(game => {
     const value = overrides[game.id]?.result || '';
-    return `<div class="leagueFixtureRow ${value ? 'hasOverride' : ''}">
+    return `<div class="leagueFixtureRow ${value ? 'hasOverride' : ''} ${value === CANCELED_OVERRIDE ? 'isCanceled' : ''}">
       <div class="leagueFixtureMeta"><time>${fixtureDate(game)}</time><span>${teamName(game.homeTeamId)} <b>vs</b> ${teamName(game.awayTeamId)}</span><small>${game.venue || '球場未定'}</small></div>
       <label><span class="srOnly">${teamName(game.homeTeamId)}対${teamName(game.awayTeamId)}の結果</span>
         <select class="leagueOverrideSelect" data-game-id="${game.id}">
@@ -121,6 +121,7 @@ function renderFixtures() {
           <option value="HOME_WIN" ${value === GAME_RESULTS.HOME_WIN ? 'selected' : ''}>${teamName(game.homeTeamId)} 勝ち</option>
           <option value="AWAY_WIN" ${value === GAME_RESULTS.AWAY_WIN ? 'selected' : ''}>${teamName(game.awayTeamId)} 勝ち</option>
           <option value="TIE" ${value === GAME_RESULTS.TIE ? 'selected' : ''}>引き分け</option>
+          <option value="${CANCELED_OVERRIDE}" ${value === CANCELED_OVERRIDE ? 'selected' : ''}>中止（未消化）</option>
         </select>
       </label>
     </div>`;

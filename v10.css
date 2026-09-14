@@ -283,6 +283,8 @@ body.leagueSimulatorMode .historyDock{display:none!important}
 .leagueFixtureList{display:grid;gap:7px}
 .leagueFixtureRow{display:grid;grid-template-columns:minmax(0,1fr) minmax(150px,190px);gap:10px;align-items:center;padding:10px;border-left:3px solid #44444a;background:#111113}
 .leagueFixtureRow.hasOverride{border-left-color:#5cb879;background:#132018}
+.leagueFixtureRow.isCanceled{border-left-color:#d7a44a;background:#211b12}
+.leagueFixtureRow.isCanceled select{border-color:#8b6931;color:#ffd88a}
 .leagueFixtureMeta{display:grid;grid-template-columns:72px minmax(0,1fr);gap:3px 9px;align-items:center;min-width:0}
 .leagueFixtureMeta time{grid-row:1/3;color:#d7c767;font-size:12px;font-weight:850}
 .leagueFixtureMeta span{overflow:hidden;font-size:13px;font-weight:800;text-overflow:ellipsis;white-space:nowrap}

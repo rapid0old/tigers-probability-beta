@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="阪神確率">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="./v10.css?v=mobile-lineup-1">
+<link rel="stylesheet" href="./v10.css?v=canceled-1">
 <title>阪神 試合確率チェッカー</title>
 <style>
 :root{--bg:#0f0f10;--card:#19191b;--card2:#222225;--text:#f6f6f6;--muted:#a9a9ae;--line:#333338;--accent:#f2d21b;--good:#61d37a;--bad:#ff6b6b;--blue:#67a8ff}
@@ -349,7 +349,7 @@ a{color:#b7cfff}
 
   <details class="leagueDisclosure">
     <summary>試合結果の速報入力 <span id="leagueRemainingCount"></span></summary>
-    <p class="leagueDisclosureNote">公式スナップショットは変更しません。指定した試合だけを確定結果として計算し、この端末に保存します。</p>
+    <p class="leagueDisclosureNote">公式スナップショットは変更しません。勝敗・引分は確定結果として計算し、中止は未消化試合のままこの端末に保存します。</p>
     <div class="leagueOverrideActions"><button id="clearLeagueOverrides" class="secondary" type="button">表示リーグの入力を解除</button></div>
     <div id="leagueFixtureList" class="leagueFixtureList"></div>
   </details>
@@ -1456,6 +1456,6 @@ if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serv
 <script src="./vendor/supabase-2.112.4.js"></script>
 <script src="./supabase-config.js"></script>
 <script src="./game-log-v3.js"></script>
-<script type="module" src="./league-simulator-ui.mjs"></script>
+<script type="module" src="./league-simulator-ui.mjs?v=canceled-1"></script>
 </body>
 </html>
