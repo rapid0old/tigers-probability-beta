@@ -1,4 +1,4 @@
-const CACHE='tigers-probability-v3.0.0-league-baseline-7';
+const CACHE='tigers-probability-v3.0.0-league-baseline-8';
 const CORE=['./','./index.html','./manifest.webmanifest','./icon.svg','./v10.css','./rosters.js','./stats-v13.js','./app-v10.js','./vendor/supabase-2.112.4.js','./supabase-config.js','./game-log-v3.js','./league-data-2026.mjs','./league-simulator-core.mjs','./league-simulator-ui.mjs'];
 
 self.addEventListener('install',event=>{
