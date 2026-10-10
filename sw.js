@@ -1,28 +1,61 @@
-const CACHE='tigers-probability-v3.0.0-league-baseline-8';
-const CORE=['./','./index.html','./manifest.webmanifest','./icon.svg','./v10.css','./rosters.js','./stats-v13.js','./app-v10.js','./vendor/supabase-2.112.4.js','./supabase-config.js','./game-log-v3.js','./league-data-2026.mjs','./league-simulator-core.mjs','./league-simulator-ui.mjs'];
+import {RELEASE_CACHE,CORE_ASSETS} from './postseason-release-assets.mjs';
+import {validateScheduleManifest,SCHEDULE_URL} from './postseason-schedule.mjs';
+import {FINAL_PRIOR_CATALOG_URL,loadProductionFinalPrior} from './postseason-final-prior.mjs';
+import './postseason-model.js';
+const CACHE=RELEASE_CACHE,CORE=CORE_ASSETS;
+const urlFor=asset=>new URL(asset,self.location.href).href;
 
-self.addEventListener('install',event=>{
-  event.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE)));
-  self.skipWaiting();
-});
-self.addEventListener('activate',event=>{
-  event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))));
-  self.clients.claim();
-});
+async function verifiedSchedule(request,cache){
+  try{
+    const response=await fetch(request,{cache:'no-store'});if(!response.ok)throw new Error('Schedule unavailable');
+    validateScheduleManifest(await response.clone().json());
+    await cache.put(urlFor(SCHEDULE_URL),response.clone());return response;
+  }catch(error){const cached=await cache.match(urlFor(SCHEDULE_URL));if(cached)return cached;throw error}
+}
+async function verifiedPriorCatalog(request,cache){
+  try{
+    const responses=new Map();
+    await loadProductionFinalPrior({priorAPI:globalThis.TigersPostseason,fetcher:async asset=>{
+      const response=await fetch(urlFor(asset),{cache:'no-store'});responses.set(asset,response.clone());return response;
+    }});
+    // Publish the catalog after its validated asset. Offline reload always gets a matching prior.
+    for(const [asset,response]of responses)if(asset!==FINAL_PRIOR_CATALOG_URL)await cache.put(urlFor(asset),response);
+    const response=responses.get(FINAL_PRIOR_CATALOG_URL);await cache.put(urlFor(FINAL_PRIOR_CATALOG_URL),response.clone());return response;
+  }catch(error){const cached=await cache.match(urlFor(FINAL_PRIOR_CATALOG_URL));if(cached)return cached;throw error}
+}
+self.addEventListener('install',event=>event.waitUntil((async()=>{
+  const cache=await caches.open(CACHE);
+  await cache.addAll(CORE.filter(a=>a!==SCHEDULE_URL&&a!==FINAL_PRIOR_CATALOG_URL));
+  const response=await fetch(urlFor(SCHEDULE_URL),{cache:'no-store'});if(!response.ok)throw new Error('Schedule missing');
+  validateScheduleManifest(await response.clone().json());await cache.put(urlFor(SCHEDULE_URL),response);
+  await verifiedPriorCatalog(new Request(urlFor(FINAL_PRIOR_CATALOG_URL)),cache);
+  await self.skipWaiting();
+})()));
+self.addEventListener('activate',event=>event.waitUntil((async()=>{
+  await Promise.all((await caches.keys()).filter(k=>k!==CACHE&&(k.startsWith('tigers-probability-beta-'))).map(k=>caches.delete(k)));
+  await self.clients.claim();
+})()));
 self.addEventListener('fetch',event=>{
-  if(event.request.method!=='GET') return;
-  const url=new URL(event.request.url);
-  if(url.origin!==self.location.origin) return;
-  if(!CORE.some(asset=>new URL(asset,self.location.href).pathname===url.pathname)) return;
-  if(event.request.mode==='navigate'){
-    event.respondWith(
-      fetch(event.request).then(r=>{
-        const copy=r.clone(); caches.open(CACHE).then(c=>c.put('./index.html',copy)); return r;
-      }).catch(()=>caches.match('./index.html'))
-    );
-    return;
-  }
-  event.respondWith(caches.match(event.request).then(cached=>cached||fetch(event.request).then(r=>{
-    const copy=r.clone(); caches.open(CACHE).then(c=>c.put(event.request,copy)); return r;
-  })));
+  const request=event.request,url=new URL(request.url);
+  if(request.method!=='GET'||url.origin!==self.location.origin)return;
+  const schedule=url.pathname===new URL(SCHEDULE_URL,self.location.href).pathname;
+  const catalog=url.pathname===new URL(FINAL_PRIOR_CATALOG_URL,self.location.href).pathname;
+  const core=CORE.some(asset=>new URL(asset,self.location.href).pathname===url.pathname);
+  const possiblePrior=/\/data\/[^/]+\.json$/.test(url.pathname);
+  if(!core&&!possiblePrior)return;
+  event.respondWith((async()=>{
+    const cache=await caches.open(CACHE);
+    if(schedule)return verifiedSchedule(request,cache);
+    if(catalog)return verifiedPriorCatalog(request,cache);
+    if(possiblePrior&&!core){
+      const c=await cache.match(urlFor(FINAL_PRIOR_CATALOG_URL)),meta=c?await c.json():null;
+      if(meta?.asset&&url.href===urlFor(meta.asset)){const prior=await cache.match(urlFor(meta.asset));if(prior)return prior}
+      return fetch(request); // Other JSON files are not added to the release cache.
+    }
+    if(request.mode==='navigate'){
+      try{const response=await fetch(request);if(!response.ok)throw new Error('Navigation unavailable');await cache.put('./index.html',response.clone());return response}
+      catch{return cache.match('./index.html')}
+    }
+    return await cache.match(request)||fetch(request);
+  })());
 });

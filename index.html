@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="阪神確率">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="./v10.css?v=canceled-1">
+<link rel="stylesheet" href="./v10.css?v=postseason-v5.0.0">
 <title>阪神 試合確率チェッカー</title>
 <style>
 :root{--bg:#0f0f10;--card:#19191b;--card2:#222225;--text:#f6f6f6;--muted:#a9a9ae;--line:#333338;--accent:#f2d21b;--good:#61d37a;--bad:#ff6b6b;--blue:#67a8ff}
@@ -122,8 +122,14 @@ a{color:#b7cfff}
 </head>
 <body>
 <div class="wrap">
-<header><div class="logo">虎</div><div><h1>阪神 試合確率チェッカー</h1><div class="sub">12球団・選手モデル v3.0.0</div></div></header>
+<header><div class="logo">虎</div><div><h1>阪神 試合確率チェッカー</h1><div class="sub">Postseason Mode v5.0.0 BETA</div></div></header>
 
+<nav class="appModeTabs" role="tablist" aria-label="シーズンmode">
+  <button id="regularModeTab" type="button" role="tab" aria-selected="true" aria-controls="regularModeView" class="active">レギュラー</button>
+  <button id="postseasonModeTab" type="button" role="tab" aria-selected="false" aria-controls="postseasonModeView" tabindex="-1">ポストシーズン</button>
+</nav>
+<div id="modeNavigationStatus" class="modeNavigationStatus" role="status" aria-live="polite"></div>
+<div id="regularModeView" role="tabpanel" aria-labelledby="regularModeTab">
 <nav class="appViewTabs" aria-label="表示画面">
   <button id="gameProbabilityTab" class="active" type="button" aria-selected="true">試合確率</button>
   <button id="leagueSimulatorTab" type="button" aria-selected="false">優勝・CS</button>
@@ -297,7 +303,7 @@ a{color:#b7cfff}
 <footer>
 得点期待値のベースライン：<a href="https://baseball.piupapp.com/run-expectancy" target="_blank" rel="noopener noreferrer">Baseball Explorer</a>（2023–2025 NPB 24状況集計）。<br>
 内蔵選手名：<a href="https://npb.jp/bis/teams/index.html" target="_blank" rel="noopener noreferrer">NPB.jp 2026年度選手一覧</a>、<a href="https://m.hanshintigers.jp/data/player_list/2026" target="_blank" rel="noopener noreferrer">阪神タイガース公式 2026選手プロフィール</a>。<br>
-公式選手成績：<a href="https://npb.jp/bis/2026/stats/" target="_blank" rel="noopener noreferrer">NPB公式 2026個人成績</a>と日別投打成績を2026年9月17日終了試合まで反映。通常更新は前回以降の試合IDだけを追加します。<br>
+公式選手成績：<a href="https://npb.jp/bis/2026/stats/" target="_blank" rel="noopener noreferrer">NPB公式 2026個人成績</a>と日別投打成績を2026年9月23日終了試合まで反映。通常更新は前回以降の試合IDだけを追加します。<br>
 左右・球場補正：NPB公式の投打情報、2024年以降のNPB公式試合結果、<a href="https://www.mlb.com/news/takeaways-from-first-half-of-2026-season" target="_blank" rel="noopener noreferrer">MLB公式 2025左右別wOBA公開集計</a>を保守的に縮約して使用。<br>
 カウント補正の方向性：<a href="https://www.mlb.com/glossary/statcast/catcher-framing" target="_blank" rel="noopener noreferrer">MLB公式 Statcast Glossary</a>の公開例（2025年の1-0後と0-1後のOPS差）を確認し、NPB実測値とは区別した保守的な試用係数として実装しています。<br>
 非公式・私的利用向け。阪神タイガース、NPBとは無関係です。
@@ -305,13 +311,17 @@ a{color:#b7cfff}
 </div>
 
 <main id="leagueSimulatorView" class="leagueSimulatorView" hidden>
+<div id="leagueNormalContent" class="leagueNormalContent">
   <section class="leagueHero">
     <div>
       <span class="leagueEyebrow">League Baseline Model v1</span>
       <h2>優勝・CS確率</h2>
-      <p>2026年9月17日終了時点の公式結果と残り日程を、12球団共通の固定Eloで計算します。</p>
+      <p>2026年9月23日終了時点の公式結果と残り日程を、12球団共通の固定Eloで計算します。</p>
     </div>
-    <div class="leagueSnapshotStatus"><span>基準日</span><strong>2026.09.17</strong></div>
+    <div class="leagueHeroActions">
+      <div class="leagueSnapshotStatus"><span>基準日</span><strong>2026.09.23</strong></div>
+      <button id="openWhatIf" class="whatIfEntry" type="button">What-if</button>
+    </div>
   </section>
 
   <section class="leagueControls" aria-label="シミュレーション設定">
@@ -321,7 +331,7 @@ a{color:#b7cfff}
     </div>
     <div class="leagueRunControls">
       <label>計算回数<select id="leagueIterations"><option value="10000">10,000回</option><option value="50000" selected>50,000回</option><option value="100000">100,000回</option></select></label>
-      <label>乱数seed<input id="leagueRandomSeed" type="text" value="baseline-2026-09-17" autocomplete="off"></label>
+      <label>乱数seed<input id="leagueRandomSeed" type="text" value="baseline-2026-09-23" autocomplete="off"></label>
       <button id="runLeagueSimulation" class="primary" type="button">再計算</button>
     </div>
     <div id="leagueRunStatus" class="leagueRunStatus" aria-live="polite">計算準備中</div>
@@ -358,7 +368,79 @@ a{color:#b7cfff}
     <summary>モデル仕様・データ出典</summary>
     <div id="leagueModelDetails" class="leagueModelDetails"></div>
   </details>
+</div>
+
+<section id="whatIfView" class="whatIfView" hidden aria-labelledby="whatIfModeTitle">
+  <header class="whatIfHeader">
+    <div class="whatIfIdentity">
+      <span class="whatIfModeLabel" id="whatIfModeTitle">What-if：仮想シナリオ</span>
+      <label for="whatIfScenarioName">Scenario名</label>
+      <input id="whatIfScenarioName" type="text" maxlength="80" autocomplete="off">
+      <div id="whatIfBaseMeta" class="whatIfBaseMeta"></div>
+    </div>
+    <div class="whatIfHeaderActions">
+      <button id="saveWhatIfScenario" class="primary" type="button">保存</button>
+      <button id="manageWhatIfScenarios" type="button">保存済み</button>
+      <button id="exitWhatIf" type="button">What-ifを終了</button>
+    </div>
+  </header>
+
+  <section class="whatIfControlPanel" aria-label="What-if計算設定">
+    <div class="whatIfFixtureFilter" role="group" aria-label="表示する試合">
+      <button id="whatIfTigersOnly" class="active" type="button">阪神戦のみ</button>
+      <button id="whatIfAllGames" type="button">全試合</button>
+    </div>
+    <div class="whatIfRunMeta">
+      <span id="whatIfAssumptionCount">仮定：0試合</span>
+      <span id="whatIfSimulationMeta"></span>
+    </div>
+    <button id="runWhatIfSimulation" class="primary whatIfRunButton" type="button">この条件で再計算</button>
+    <div id="whatIfRunStatus" class="leagueRunStatus" aria-live="polite">条件を選んで再計算してください</div>
+  </section>
+
+  <section class="whatIfFixturePanel" aria-labelledby="whatIfFixtureTitle">
+    <div class="leagueSectionHead"><div><span>残り試合</span><h3 id="whatIfFixtureTitle">仮想結果を選択</h3></div></div>
+    <div id="whatIfFixtureList" class="whatIfFixtureList"></div>
+  </section>
+
+  <section id="whatIfComparison" class="whatIfComparison" aria-labelledby="whatIfComparisonTitle" hidden>
+    <div class="leagueSectionHead"><div><span>通常との比較</span><h3 id="whatIfComparisonTitle">阪神への影響</h3></div><div id="whatIfResultState" class="whatIfResultState"></div></div>
+    <div id="whatIfHeadlineResults" class="whatIfHeadlineResults"></div>
+    <div class="leagueTableScroll">
+      <table class="whatIfComparisonTable">
+        <thead><tr><th>球団</th><th>項目</th><th>通常</th><th>What-if</th><th>差分</th></tr></thead>
+        <tbody id="whatIfComparisonBody"></tbody>
+      </table>
+    </div>
+    <details class="whatIfRankDetails">
+      <summary>阪神の順位分布</summary>
+      <div class="leagueTableScroll"><table class="whatIfRankTable"><thead><tr><th></th><th>1位</th><th>2位</th><th>3位</th><th>4位</th><th>5位</th><th>6位</th></tr></thead><tbody id="whatIfRankBody"></tbody></table></div>
+    </details>
+  </section>
+</section>
 </main>
+
+<dialog id="whatIfStartDialog" class="whatIfDialog">
+  <div class="dialogHeader"><strong>What-if Scenario</strong><button id="closeWhatIfDialog" type="button" aria-label="閉じる">×</button></div>
+  <div id="whatIfDialogStatus" class="whatIfDialogStatus" role="status" aria-live="polite"></div>
+  <label for="newWhatIfName">新規Scenario名</label>
+  <input id="newWhatIfName" type="text" maxlength="80" autocomplete="off">
+  <button id="createWhatIfScenario" class="primary whatIfCreateButton" type="button">現在時点から新規作成</button>
+  <div class="whatIfSavedHeading">保存済みScenario</div>
+  <div id="whatIfSavedList" class="whatIfSavedList"></div>
+</dialog>
+</div><!-- regularModeView -->
+<section id="postseasonModeView" role="tabpanel" aria-labelledby="postseasonModeTab" hidden inert>
+  <p class="postseasonModeLabel">2026 ポストシーズン</p>
+  <nav class="postseasonFeatureTabs" role="tablist" aria-label="ポストシーズンの表示画面">
+    <button id="postseasonGameTab" type="button" role="tab" aria-selected="false" aria-controls="postseasonGamePanel" tabindex="-1">試合</button>
+    <button id="postseasonSeriesTab" type="button" role="tab" aria-selected="true" aria-controls="postseasonSeriesPanel" class="active">シリーズ</button>
+    <button id="postseasonStatsTab" type="button" role="tab" aria-selected="false" aria-controls="postseasonStatsPanel" tabindex="-1">成績</button>
+  </nav>
+  <section id="postseasonGamePanel" role="tabpanel" aria-labelledby="postseasonGameTab" hidden></section>
+  <section id="postseasonSeriesPanel" role="tabpanel" aria-labelledby="postseasonSeriesTab"><p class="seriesLoading" role="status">シリーズ表示を読み込みます。</p></section>
+  <section id="postseasonStatsPanel" class="card postseasonPlaceholder" role="tabpanel" aria-labelledby="postseasonStatsTab" hidden><h2>ポストシーズンの成績</h2><p>成績画面は準備中です。</p></section>
+</section>
 </div>
 <div class="probDock" id="probDock" aria-label="確率サマリー" aria-live="polite">
   <button data-detail="run"><span class="dockLabel">この回1点+</span><span class="dockValue" id="dockRunProb">--%</span></button>
@@ -374,10 +456,544 @@ a{color:#b7cfff}
 </dialog>
 <div id="toast" class="toast"></div>
 
-<script src="./rosters.js"></script>
-<script src="./stats-v13.js"></script>
+<script src="./rosters.js?v=production-20260923-1"></script>
+<script src="./stats-v13.js?v=production-20260923-1"></script>
+<script>
+// BEGIN EMBEDDED phase-runtime.js
+// Pure phase/session boundary. Embedded in index.html for the existing offline shell.
+(function(root, factory) {
+  const api = factory();
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  else root.TigersPhase = api;
+})(globalThis, function() {
+  'use strict';
+  const PHASES = Object.freeze({REGULAR: 'REGULAR', POSTSEASON: 'POSTSEASON'});
+  const BOOT_TEST_AUTHORIZED = globalThis.TIGERS_TEST_RUNTIME?.enabled === true;
+  const OPTIONAL_CONTEXT_FIELDS = ['competition', 'stage', 'series_id', 'game_id', 'dataset_id', 'prior_id', 'ruleset_id'];
+  const clone = value => value == null ? value : JSON.parse(JSON.stringify(value));
+  const freeze = value => { if (value && typeof value === 'object') { Object.values(value).forEach(freeze); Object.freeze(value); } return value; };
+  const record = value => value && typeof value === 'object' && !Array.isArray(value);
+  const canonicalBindingRecord = value => JSON.stringify(value, (_, item) => record(item) ?
+    Object.fromEntries(Object.keys(item).sort().map(key => [key,item[key]])) : item);
+  function validateGameSessionData(session, context) {
+    if (session.loadError) throw session.loadError;
+    const lineup = value => {
+      if (!Array.isArray(value) || value.length !== 9 || value.some(id => typeof id !== 'string')) throw new Error('Invalid saved lineup');
+    };
+    const lineups = value => {
+      if (!record(value)) throw new Error('Invalid saved opponent lineups');
+      for (const ids of Object.values(value)) lineup(ids);
+    };
+    if (session.lineup !== null && session.lineup !== undefined) {
+      if (!record(session.lineup)) throw new Error('Invalid saved lineup');
+      lineup(session.lineup.tLine); lineup(session.lineup.oLine);
+    }
+    lineups(session.opponentLineups || {});
+    const learning = session.learning;
+    if (learning && (!record(learning) || !Array.isArray(learning.entries) || !Array.isArray(learning.steals) || [...learning.entries,...learning.steals].some(x => !record(x)))) throw new Error('Invalid saved observations');
+    if (learning && (learning.phase && learning.phase !== context.phase || learning.season && learning.season !== context.season)) throw new Error('Saved observation phase mismatch');
+    const state = session.gameState;
+    if (state == null) return;
+    if (!record(state)) throw new Error('Invalid saved game');
+    const integer = (name, min, max) => {
+      const value = state[name];
+      if (!['number','string'].includes(typeof value) || value === '' || !Number.isInteger(Number(value)) || Number(value) < min || Number(value) > max) throw new Error('Invalid saved game '+name);
+    };
+    if (!['top','bottom'].includes(state.half)) throw new Error('Invalid saved half');
+    for (const [name,min,max] of [['outs',0,3],['balls',0,3],['strikes',0,2],['inning',1,context.phase === 'REGULAR' ? 12 : 999],['tigersScore',0,999],['oppScore',0,999],['tPos',0,8],['oPos',0,8]]) integer(name,min,max);
+    lineup(state.tLine); lineup(state.oLine);
+    if (!record(state.baseRunners) || Object.values(state.baseRunners).some(id => typeof id !== 'string')) throw new Error('Invalid saved runners');
+    if (!['home','away'].includes(state.homeAway) || typeof state.opponent !== 'string' || typeof state.tPitcher !== 'string' || typeof state.oPitcher !== 'string') throw new Error('Invalid saved game identity');
+    for (const name of ['pitchLoads','pitcherUsageRoles']) if (state[name] !== undefined && !record(state[name])) throw new Error('Invalid saved '+name);
+    if (Object.values(state.pitchLoads || {}).some(x => !Number.isFinite(x) || x < 0)) throw new Error('Invalid saved pitch count');
+    if (state.savedOpponentLineups) lineups(state.savedOpponentLineups);
+    if (state.gameEnded !== undefined && typeof state.gameEnded !== 'boolean') throw new Error('Invalid saved completion');
+    if (state.ruleStatus !== undefined && !['ACTIVE','RULE_PENDING'].includes(state.ruleStatus)) throw new Error('Invalid saved rule status');
+    if (state.ruleStatus === 'RULE_PENDING' && (context.phase !== 'POSTSEASON' || state.gameEnded)) throw new Error('Invalid pending completion');
+  }
+  function createPhaseContext(input) {
+    if (!input || !Number.isInteger(input.season) || input.season < 1900 || !Object.values(PHASES).includes(input.phase)) throw new Error('Explicit season and phase are required');
+    const context = {season: input.season, phase: input.phase};
+    for (const name of OPTIONAL_CONTEXT_FIELDS) {
+      if (input[name] !== undefined) {
+        if (typeof input[name] !== 'string' || !input[name].trim()) throw new Error(`Invalid context ${name}`);
+        context[name] = input[name];
+      }
+    }
+    return Object.freeze(context);
+  }
+  const contextKey = context => JSON.stringify(createPhaseContext(context));
+  const REGULAR_KEYS = Object.freeze({
+    game: 'tigersBetaGameStateV1', opponentLineups: 'tigersBetaOpponentLineupsV1',
+    learning: 'tigersBetaObservedLearningV1', stats: 'tigersBetaStatsV5',
+    statsV4: 'tigersBetaStatsV4', statsV3: 'tigersBetaStatsV3',
+    leagueOverrides: 'tigersBetaLeagueSimulatorOverridesV1', whatIf: 'tigersProbabilityBeta.whatIf.store.v1',
+  });
+  class StorageAdapter {
+    constructor(context, storage) {
+      Object.defineProperty(this, 'context', {value: createPhaseContext(context), enumerable: true});
+      if (!storage || typeof storage.getItem !== 'function' || typeof storage.setItem !== 'function') throw new Error('Storage is required');
+      this.storage = storage;
+      const legacy = this.context.phase === PHASES.REGULAR && this.context.season === 2026;
+      const prefix = `tigersProbabilityBeta.${this.context.season}.${this.context.phase}.v1.`;
+      this.keys = Object.freeze(legacy ? {...REGULAR_KEYS} : Object.fromEntries(
+        ['game', 'lineup', 'opponentLineups', 'learning', 'paHistory', 'sbHistory', 'stats'].map(name => [name, prefix + name])));
+    }
+    key(name) {
+      if (!Object.hasOwn(this.keys, name)) throw new Error(`Storage ${name} is unavailable in ${this.context.phase}`);
+      return this.keys[name];
+    }
+    getItem(name) { return this.storage.getItem(this.key(name)); }
+    setItem(name, value) { this.storage.setItem(this.key(name), value); }
+    read(name, fallback = null) {
+      try { const raw = this.getItem(name); return raw === null ? clone(fallback) : JSON.parse(raw); }
+      catch { return clone(fallback); }
+    }
+    readStrict(name, fallback = null) { const raw = this.getItem(name); return raw === null ? clone(fallback) : JSON.parse(raw); }
+    write(name, value) { this.setItem(name, JSON.stringify(value)); }
+    readLearning() {
+      const learning = this.read('learning');
+      if (!learning) return null;
+      if (this.context.phase === PHASES.REGULAR) return learning;
+      return {...learning, entries: this.read('paHistory', []), steals: this.read('sbHistory', [])};
+    }
+    writeLearning(learning) {
+      if (this.context.phase === PHASES.REGULAR) return this.write('learning', learning);
+      const {entries = [], steals = [], ...metadata} = learning;
+      this.write('paHistory', entries); this.write('sbHistory', steals); this.write('learning', metadata);
+    }
+    writeGame(payload) {
+      if (this.context.phase === PHASES.POSTSEASON) this.write('lineup', {tLine: payload.state.tLine, oLine: payload.state.oLine});
+      this.write('game', payload);
+    }
+  }
+  class RegularStorageAdapter extends StorageAdapter {
+    constructor(context, storage) { super(context, storage); if (context.phase !== PHASES.REGULAR) throw new Error('Regular context required'); }
+  }
+  class PostseasonStorageAdapter extends StorageAdapter {
+    constructor(context, storage) { super(context, storage); if (context.phase !== PHASES.POSTSEASON) throw new Error('Postseason context required'); }
+  }
+  function createStorageAdapter(context, storage) {
+    return context.phase === PHASES.REGULAR ? new RegularStorageAdapter(context, storage) : new PostseasonStorageAdapter(context, storage);
+  }
+  let nextSessionId = 0;
+  class GameSession {
+    #binding = null; #bindingRecord = null; #testAuthorized;
+    constructor(context, storage, {testAuthorized = BOOT_TEST_AUTHORIZED} = {}) {
+      this.#testAuthorized = testAuthorized === true;
+      Object.defineProperty(this, 'context', {value: createPhaseContext(context), enumerable: true});
+      Object.defineProperty(this, 'id', {value: `game-session-${++nextSessionId}`, enumerable: true});
+      this.storage = createStorageAdapter(this.context, storage);
+      this.loadError = null;
+      const read = (name, fallback = null) => { try { return this.storage.readStrict(name, fallback); } catch (error) { this.loadError = error; return clone(fallback); } };
+      const saved = read('game');
+      if (saved && (saved.version !== 1 || !record(saved.state))) this.loadError = new Error('Invalid saved game schema');
+      this.gameState = saved?.version === 1 ? clone(saved.state) : null;
+      // Loading alone neither activates a binding nor rewrites legacy storage.
+      this.savedPostseasonBindingRecord = this.context.phase === PHASES.POSTSEASON ? freeze(clone(saved?.postseason_binding ?? null)) : null;
+      this.lineup = this.context.phase === PHASES.POSTSEASON ? read('lineup') : null;
+      this.pitchers = null;
+      this.opponentLineups = read('opponentLineups', {});
+      this.learning = read('learning');
+      if (this.learning && this.context.phase === PHASES.POSTSEASON) this.learning = {...this.learning, entries:read('paHistory',[]), steals:read('sbHistory',[])};
+      this.history = []; this.redoHistory = [];
+      this.revision = 0; this.gameDirty = false; this.learningDirty = false; this.pendingSave = null; this.saveTimer = null;
+      this.lastGameSaveError = null; this.lastLearningSaveError = null; this.memory = null;
+      Object.defineProperty(this,'dirty',{get:()=>this.gameDirty || this.learningDirty,set:value=>{this.gameDirty=Boolean(value)},enumerable:true});
+      Object.defineProperty(this,'lastSaveError',{get:()=>this.lastGameSaveError || this.lastLearningSaveError,enumerable:true});
+    }
+    get postseasonBinding() { return this.#binding; }
+    get postseasonBindingRecord() { return this.#bindingRecord; }
+    assertPostseasonBindingBaseline(bytes = this.storage.getItem('game')) {
+      if (this.context.phase !== PHASES.POSTSEASON) return null;
+      const persisted = bytes === null ? null : JSON.parse(bytes).postseason_binding ?? null;
+      const expected = this.#bindingRecord || this.savedPostseasonBindingRecord;
+      if (canonicalBindingRecord(persisted) !== canonicalBindingRecord(expected)) throw new Error('Stale persistent binding conflict; reload the latest record');
+      return freeze(clone(persisted));
+    }
+    validatePostseasonBinding(binding) {
+      if (this.context.phase !== PHASES.POSTSEASON || binding.phase !== this.context.phase || binding.season !== this.context.season) throw new Error('Regular or incompatible session cannot bind a Postseason game');
+      if ((binding.purpose === 'TEST' || binding.source?.kind === 'TEST_FIXTURE') && !this.#testAuthorized) throw new Error('TEST binding requires boot-time test harness');
+      if (!Object.isFrozen(binding)) throw new Error('Immutable binding required');
+    }
+    publishPostseasonBinding(binding, record) {
+      this.validatePostseasonBinding(binding);
+      this.#binding = binding; this.#bindingRecord = record;
+      this.savedPostseasonBindingRecord = record;
+    }
+  }
+  class SessionManager {
+    #testAuthorized;
+    constructor({context, storage, setTimer = setTimeout, clearTimer = clearTimeout, testAuthorized = BOOT_TEST_AUTHORIZED}) {
+      this.#testAuthorized = testAuthorized === true;
+      // Browser timers must not receive SessionManager as their native `this`.
+      this.storage = storage;
+      this.setTimer = (callback, delay) => setTimer(callback, delay);
+      this.clearTimer = id => clearTimer(id);
+      this.sessions = new Map(); this.epoch = 0; this.ready = false; this.hydrating = 0;
+      this.switchGuards = new Set(); this.active = this.getSession(context);
+    }
+    getSession(context) {
+      const key = contextKey(context);
+      if (!this.sessions.has(key)) {
+        const normalized = createPhaseContext(context);
+        // Stage 1 has one current-game owner per season/phase namespace.
+        for (const session of this.sessions.values()) {
+          if (session.context.season === normalized.season && session.context.phase === normalized.phase) throw new Error('A different context already owns this season/phase storage namespace');
+        }
+        this.sessions.set(key, new GameSession(normalized, this.storage, {testAuthorized:this.#testAuthorized}));
+      }
+      return this.sessions.get(key);
+    }
+    get current() { return this.stagingSession || this.active; }
+    capture(session = this.current) { return Object.freeze({context: session.context, sessionId: session.id, revision: session.revision, epoch: this.epoch,
+      ...(session.postseasonBinding ? {postseasonBinding:session.postseasonBinding} : {})}); }
+    owns(token) {
+      const session = this.sessions.get(contextKey(token.context));
+      return Boolean(session && session.id === token.sessionId && session.revision === token.revision);
+    }
+    isCurrent(token) { return this.owns(token) && this.current.id === token.sessionId && this.epoch === token.epoch; }
+    touch(session = this.current, domain = 'game') {
+      if (!this.ready || this.hydrating) return;
+      session.revision++; if (domain === 'game') session.gameDirty = true;
+      if (session.pendingSave || session.gameDirty && session.gameState) this.refreshGameReservation(session);
+    }
+    withHydration(callback) { this.hydrating++; try { return callback(); } finally { this.hydrating--; } }
+    addSwitchGuard(guard) { this.switchGuards.add(guard); return () => this.switchGuards.delete(guard); }
+    switchTo(context) {
+      if (contextKey(context) === contextKey(this.active.context)) return this.active;
+      for (const guard of this.switchGuards) if (!guard(context)) throw new Error('Finish the active Regular What-if operation before switching phase');
+      const incoming = this.getSession(context);
+      this.epoch++; this.active = incoming; return this.active;
+    }
+    write(name, value, session = this.active) {
+      if (!this.ready || this.hydrating) return false;
+      session.storage.write(name, value); return true;
+    }
+    writeLearning(value, session = this.current) {
+      if (!this.ready || this.hydrating) return false;
+      session.learning = clone(value); session.learningDirty = true;
+      if (!this.flushLearning(session)) throw session.lastLearningSaveError;
+      return true;
+    }
+    flushLearning(session) {
+      if (!session.learningDirty) return true;
+      try { session.storage.writeLearning(session.learning); session.learningDirty = false; session.lastLearningSaveError = null; return true; }
+      catch (error) { session.lastLearningSaveError = error; return false; }
+    }
+    scheduleGameSave(payload, delay = 80, session = this.active) {
+      if (!this.ready || this.hydrating) return;
+      this.clearTimer(session.saveTimer);
+      session.gameState = clone(payload.state);
+      session.gameDirty = true;
+      const bindingRecord = session.postseasonBindingRecord || session.savedPostseasonBindingRecord;
+      session.pendingSave = {token: this.capture(session), payload: clone({...payload,
+        ...(session.context.phase === PHASES.POSTSEASON && bindingRecord ? {postseason_binding:bindingRecord} : {})})};
+      session.saveTimer = this.setTimer(() => this.flush(session), delay);
+    }
+    refreshGameReservation(session) {
+      const state = this.captureGameState?.(session) || session.gameState;
+      if (state) this.scheduleGameSave({version:1,savedAt:Date.now(),state},80,session);
+    }
+    flush(session = this.active) {
+      this.clearTimer(session.saveTimer); session.saveTimer = null;
+      const latest = session.gameDirty && this.captureGameState?.(session);
+      if (latest && session.pendingSave && JSON.stringify(latest) !== JSON.stringify(session.pendingSave.payload.state)) this.refreshGameReservation(session);
+      if (session.pendingSave && !this.owns(session.pendingSave.token) || session.gameDirty && !session.pendingSave) {
+        this.refreshGameReservation(session); this.clearTimer(session.saveTimer); session.saveTimer = null;
+      }
+      this.clearTimer(session.saveTimer); session.saveTimer = null;
+      const pending = session.pendingSave;
+      let gameSaved = !session.gameDirty;
+      if (pending) {
+        try { if (session.context.phase === PHASES.POSTSEASON) session.assertPostseasonBindingBaseline();
+          session.storage.writeGame(pending.payload); session.pendingSave = null; session.gameDirty = false; session.lastGameSaveError = null; gameSaved = true; }
+        catch (error) { session.lastGameSaveError = error; }
+      }
+      const learningSaved = this.flushLearning(session);
+      return gameSaved && learningSaved;
+    }
+    flushAll() { for (const session of this.sessions.values()) this.flush(session); }
+    commitPostseasonBinding({binding, record, token, state, expectedBytes, persist = true}) {
+      const session = this.current;
+      if (!this.ready || this.hydrating || session.context.phase !== PHASES.POSTSEASON || !this.isCurrent(token)) throw new Error('Stale or non-Postseason binding commit');
+      session.validatePostseasonBinding(binding);
+      if (session.storage.getItem('game') !== expectedBytes) throw new Error('Game storage changed before binding commit');
+      session.assertPostseasonBindingBaseline(expectedBytes);
+      const payload = {version:1, savedAt:Date.now(), state:clone(state), postseason_binding:record};
+      // Only this write can fail; memory identity/revision remains old until it succeeds.
+      if (persist) session.storage.write('game', payload);
+      this.clearTimer(session.saveTimer); session.saveTimer = null; session.pendingSave = null;
+      session.publishPostseasonBinding(binding, record); session.gameState = clone(state); session.revision++;
+      session.gameDirty = false; session.lastGameSaveError = null;
+      return binding;
+    }
+  }
+  function createPredictionContext({phaseContext, dataset = null, prior = null, officialPostseasonData = null, learning = null, purpose = 'PRODUCTION'}) {
+    const context = createPhaseContext(phaseContext);
+    if (!['PRODUCTION','TEST'].includes(purpose)) throw new Error('Explicit prediction purpose required');
+    if (prior?.schema_version) {
+      if (context.phase !== PHASES.POSTSEASON || prior.season !== context.season || prior.source_phase !== 'REGULAR' || !prior.source_dataset_id || !prior.prior_id || !['OFFICIAL_REGULAR_FINAL','NON_FINAL_REGULAR_SNAPSHOT','TEST_REGULAR_SNAPSHOT'].includes(prior.source_kind) || purpose === 'PRODUCTION' && prior.source_kind !== 'OFFICIAL_REGULAR_FINAL') throw new Error('An explicit compatible official final prior is required for production');
+    } else if (prior && (context.phase !== PHASES.POSTSEASON || prior.source !== 'OFFICIAL_REGULAR_FINAL' || !prior.dataset_id || !prior.prior_id || prior.season !== context.season)) throw new Error('An explicit final official Regular prior source is required');
+    if (officialPostseasonData && context.phase !== PHASES.POSTSEASON) throw new Error('Postseason official data cannot enter Regular prediction');
+    for (const input of [dataset,learning]) if (input && (input.phase && input.phase !== context.phase || input.season && input.season !== context.season)) throw new Error('Prediction input season/phase mismatch');
+    return Object.freeze({phaseContext: context, dataset, prior, officialPostseasonData, learning, purpose});
+  }
+  return Object.freeze({PHASES, REGULAR_KEYS, createPhaseContext, contextKey, validateGameSessionData, StorageAdapter, RegularStorageAdapter, PostseasonStorageAdapter, createStorageAdapter, GameSession, SessionManager, createPredictionContext});
+});
+// END EMBEDDED phase-runtime.js
+</script>
+<script>
+// BEGIN EMBEDDED postseason-model.js
+// Explicit Postseason data inputs; no DOM, ambient stats, storage or network reads.
+(function(root, factory) {
+  const api = factory();
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  else root.TigersPostseason = api;
+})(globalThis, function() {
+  'use strict';
+  const MODEL_VERSION = 'player-pipeline-v4.0.1';
+  const SOURCE_KINDS = Object.freeze(['OFFICIAL_REGULAR_FINAL', 'NON_FINAL_REGULAR_SNAPSHOT', 'TEST_REGULAR_SNAPSHOT']);
+  const BAT_FIELDS = ['pa','ab','h','s1','d2','t3','hr','bb','hbp','k','dp','sh','sf','sb','cs'];
+  const PIT_FIELDS = ['bf','h','hr','bb','hbp','k','r','er','outs'];
+  const clone = value => JSON.parse(JSON.stringify(value));
+  const compare = (a,b) => a<b?-1:a>b?1:0;
+  function freeze(value) {
+    if (value && typeof value === 'object') { for (const child of Object.values(value)) freeze(child); Object.freeze(value); }
+    return value;
+  }
+  function canonical(value) {
+    if (value === null || typeof value === 'string' || typeof value === 'boolean') return JSON.stringify(value);
+    if (typeof value === 'number' && Number.isFinite(value)) return JSON.stringify(value);
+    if (Array.isArray(value)) return '[' + value.map(canonical).join(',') + ']';
+    if (value && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype) return '{' + Object.keys(value).sort().map(k => JSON.stringify(k) + ':' + canonical(value[k])).join(',') + '}';
+    throw new Error('Only finite JSON values are supported');
+  }
+  async function hash(value) {
+    const subtle = globalThis.crypto?.subtle || (typeof require === 'function' ? require('node:crypto').webcrypto.subtle : null);
+    if (!subtle) throw new Error('SHA-256 is unavailable');
+    const bytes = await subtle.digest('SHA-256', new TextEncoder().encode(canonical(value)));
+    return Array.from(new Uint8Array(bytes), b => b.toString(16).padStart(2,'0')).join('');
+  }
+  function string(value, label) { if (typeof value !== 'string' || !value.trim() || value.length > 300) throw new Error('Invalid '+label); return value; }
+  function date(value) { if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '') || new Date(value+'T00:00:00Z').toISOString().slice(0,10) !== value) throw new Error('Invalid baseline date'); return value; }
+  function timestamp(value) { string(value,'timestamp'); if (!Number.isFinite(Date.parse(value)) || !/Z$/.test(value)) throw new Error('An explicit UTC timestamp is required'); return value; }
+  function phaseContext(context) { if (!Number.isInteger(context?.season) || context.phase !== 'POSTSEASON') throw new Error('Explicit Postseason context required'); return context; }
+  function purpose(value) { if (!['PRODUCTION','TEST'].includes(value)) throw new Error('Explicit prediction purpose required'); }
+  function playerId(value) { if (typeof value!=='string' || !/^[A-Za-z0-9][A-Za-z0-9:._/-]{0,159}$/.test(value)) throw new Error('Stable player ID required; names are not IDs'); return value; }
+  const playerKey = (team,id) => JSON.stringify([team,id]);
+  function count(value) { if (!Number.isSafeInteger(value) || value < 0) throw new Error('Invalid aggregate count'); return value; }
+  function normalizePlayers(players, type, teams) {
+    if (!Array.isArray(players)) throw new Error('Explicit player aggregates required');
+    const ids = new Set(), fields = type === 'bat' ? BAT_FIELDS : PIT_FIELDS;
+    return players.map(source => {
+      const id = playerId(source.player_id || source.id), team = string(source.team,'team');
+      if (!teams.includes(team) || ids.has(playerKey(team,id))) throw new Error('Unknown team or duplicate player ID');
+      ids.add(playerKey(team,id));
+      const result = {id, team, name: string(source.name || id,'display name')};
+      for (const field of fields) result[field] = count(source[field] ?? 0);
+      for (const field of ['bats','throws','role']) if (source[field] !== undefined) result[field] = string(source[field],field);
+      if (source.spd !== undefined) { if (!Number.isFinite(source.spd) || source.spd <= 0) throw new Error('Invalid speed'); result.spd = source.spd; }
+      if (type === 'bat' && (result.h !== result.s1+result.d2+result.t3+result.hr || result.h > result.ab || result.ab > result.pa || result.s1+result.d2+result.t3+result.hr+result.bb+result.hbp+result.k > result.pa)) throw new Error('Inconsistent batting aggregates');
+      if (type === 'pit' && (result.hr > result.h || result.h+result.bb+result.hbp+result.k > result.bf)) throw new Error('Inconsistent pitching aggregates');
+      return result;
+    }).sort((a,b) => compare(playerKey(a.team,a.id),playerKey(b.team,b.id)));
+  }
+  const sum = (rows,key) => rows.reduce((total,row) => total+(row[key] || 0),0);
+  function ratesBat(rows) { const n=sum(rows,'pa')||1; return {n,...Object.fromEntries(['s1','d2','t3','hr','bb','hbp','k','dp'].map(k=>[k,sum(rows,k)/n]))}; }
+  function ratesPit(rows) { const n=sum(rows,'bf')||1; return {n,...Object.fromEntries(['h','hr','bb','hbp','k','r'].map(k=>[k,sum(rows,k)/n]))}; }
+  function buildModelData(dataset,teams) {
+    const lb=ratesBat(dataset.bat),lp=ratesPit(dataset.pit),teamB={},teamP={},byBat={},byPit={};
+    for (const team of teams) { teamB[team]=ratesBat(dataset.bat.filter(p=>p.team===team));teamP[team]=ratesPit(dataset.pit.filter(p=>p.team===team));byBat[team]=dataset.bat.filter(p=>p.team===team).sort((a,b)=>b.pa-a.pa);byPit[team]=dataset.pit.filter(p=>p.team===team).sort((a,b)=>b.bf-a.bf); }
+    return {lb,lp,teamB,teamP,byBat,byPit};
+  }
+  function abilities(player,baseline,type) {
+    const n=player[type==='bat'?'pa':'bf'],weight=type==='bat'?120:180;
+    return Object.fromEntries((type==='bat'?['s1','d2','t3','hr','bb','hbp','k','dp']:['h','hr','bb','hbp','k']).map(k=>[k,((player[k]||0)+baseline[k]*weight)/(n+weight)]));
+  }
+  function normalizeEnvironment(dataset) {
+    if (!dataset.parks?.factors || !dataset.platoon?.factors) throw new Error('Explicit park and platoon baselines required');
+    const parks = {leagueRunsPerGame:dataset.parks.leagueRunsPerGame || 0, factors:{}};
+    for (const [id,p] of Object.entries(dataset.parks.factors)) {
+      if (!Number.isFinite(p.factor) || p.factor <= 0) throw new Error('Invalid park factor');
+      parks.factors[id] = {id,name:String(p.name || id),games:count(p.games ?? 0),runsPerGame:p.runsPerGame || 0,factor:p.factor};
+    }
+    const platoon={factors:{}};
+    for (const [key,value] of Object.entries(dataset.platoon.factors)) { if (!Number.isFinite(value) || value <= 0) throw new Error('Invalid platoon factor');platoon.factors[key]=value; }
+    return {parks,platoon};
+  }
+  function checkFinalization(kind,source) {
+    if (kind !== 'OFFICIAL_REGULAR_FINAL') return;
+    const f=source.finalization;
+    if (f?.status !== 'FINAL' || f.remaining_games !== 0 || f.pending_reschedules !== 0 || !f.confirmation_id || !f.confirmed_at || Date.parse(f.confirmed_at) < Date.parse(source.source_baseline_date+'T00:00:00Z') || !Number.isFinite(Date.parse(f.confirmed_at))) throw new Error('Explicit confirmed final official dataset required');
+  }
+  function sourceHeader(source) {
+    if (!source || !SOURCE_KINDS.includes(source.source_kind) || !Number.isInteger(source.season) || source.phase !== 'REGULAR') throw new Error('Explicit classified Regular dataset required');
+    if (source.source_kind !== 'TEST_REGULAR_SNAPSHOT' && (source.origin !== 'NPB_OFFICIAL' || !/^https:\/\/npb\.jp\//.test(source.source_url || ''))) throw new Error('Official NPB Regular source required');
+    const result={season:source.season,source_kind:source.source_kind,source_phase:'REGULAR',source_dataset_id:string(source.dataset_id,'dataset ID'),source_baseline_date:date(source.baseline_date),source_model_version:string(source.model_version,'model version'),source_url:source.source_url || null,origin:source.origin || 'TEST_FIXTURE',finalization:null};
+    if (result.source_model_version !== MODEL_VERSION) throw new Error('Unsupported model version');
+    if (source.source_kind === 'OFFICIAL_REGULAR_FINAL') result.finalization=clone(source.finalization || null);
+    checkFinalization(result.source_kind,result);
+    return result;
+  }
+  function normalizeAliases(aliases,players) {
+    const out={bat:[],pit:[]};
+    for (const type of ['bat','pit']) {
+      const targets=new Set(players[type].map(p=>playerKey(p.team,p.id))),seen=new Set();
+      for (const alias of aliases?.[type] || []) {
+        const row={team:string(alias.team,'team'),alias_id:playerId(alias.alias_id),player_id:playerId(alias.player_id)},key=playerKey(row.team,row.alias_id);
+        if (!targets.has(playerKey(row.team,row.player_id)) || seen.has(key) || targets.has(key) && row.alias_id!==row.player_id) throw new Error('Invalid explicit ID alias');
+        seen.add(key);out[type].push(row);
+      }
+      out[type].sort((a,b)=>compare(canonical(a),canonical(b)));
+    }
+    return out;
+  }
+  function makePayload(dataset,teams,aliases) {
+    const players={bat:normalizePlayers(dataset.bat,'bat',teams),pit:normalizePlayers(dataset.pit,'pit',teams)};
+    if (!players.bat.length || !players.pit.length) throw new Error('Both batting and pitching aggregates required');
+    const model=buildModelData(players,teams);
+    return {teams,league_baseline:{batting:model.lb,pitching:model.lp},team_batting:model.teamB,team_pitching:model.teamP,
+      batter_ability:players.bat.map(p=>({player_id:p.id,team:p.team,aggregates:p,ability:abilities(p,model.lb,'bat')})),
+      pitcher_ability:players.pit.map(p=>({player_id:p.id,team:p.team,aggregates:p,ability:abilities(p,model.lp,'pit')})),
+      identity_aliases:normalizeAliases(aliases,players),environment:normalizeEnvironment(dataset),
+      model_parameters:{batter_shrinkage_pa:120,pitcher_shrinkage_bf:180,observation_prior_pa:48}};
+  }
+  function hashBody(prior) { const {prior_id,content_hash,created_at,...body}=prior;return body; }
+  async function buildPrior(source,{created_at}={}) {
+    const header=sourceHeader(source),dataset=source.dataset;
+    if (!dataset || dataset.snapshotDate !== header.source_baseline_date) throw new Error('Dataset date does not match the explicit source');
+    if (dataset.phase && dataset.phase!=='REGULAR' || dataset.season && dataset.season!==header.season) throw new Error('Regular dataset season/phase mismatch');
+    if (header.source_kind==='OFFICIAL_REGULAR_FINAL' && (dataset.phase!=='REGULAR' || dataset.is_final!==true || canonical(dataset.finalization)!==canonical(header.finalization))) throw new Error('The dataset itself must carry confirmed finality; a source label cannot promote a non-final snapshot');
+    const teams=[...new Set(source.teams || [])].sort();if (!teams.length || teams.some(t=>typeof t!=='string'||!t.trim())) throw new Error('Explicit team IDs required');
+    const body={schema_version:1,...header,payload:makePayload(dataset,teams,source.identity_aliases)};
+    const content_hash=await hash(body);
+    return freeze({...body,prior_id:'prior-'+content_hash,created_at:timestamp(created_at),content_hash});
+  }
+  function assertConnection(prior,context,predictionPurpose='PRODUCTION') {
+    phaseContext(context);purpose(predictionPurpose);
+    if (prior.season !== context.season || prior.source_phase !== 'REGULAR' || !SOURCE_KINDS.includes(prior.source_kind)) throw new Error('Prior/context mismatch');
+    if (predictionPurpose === 'PRODUCTION' && prior.source_kind !== 'OFFICIAL_REGULAR_FINAL') throw new Error('TEST/NON_FINAL prior cannot connect to production');
+    checkFinalization(prior.source_kind,prior);
+  }
+  async function validatePrior(prior) {
+    prior=clone(prior); // Pin caller-owned JSON before the asynchronous integrity check.
+    if (prior?.schema_version !== 1 || !/^[a-f0-9]{64}$/.test(prior.content_hash || '') || prior.prior_id !== 'prior-'+prior.content_hash || prior.source_phase !== 'REGULAR') throw new Error('Invalid PriorSnapshot schema');
+    timestamp(prior.created_at);
+    const header=sourceHeader({season:prior.season,phase:'REGULAR',source_kind:prior.source_kind,dataset_id:prior.source_dataset_id,baseline_date:prior.source_baseline_date,model_version:prior.source_model_version,source_url:prior.source_url,origin:prior.origin,finalization:prior.finalization});
+    const p=prior.payload;
+    if (!Array.isArray(p?.teams) || new Set(p.teams).size !== p.teams.length) throw new Error('Invalid teams');
+    const rebuilt=makePayload({bat:p.batter_ability.map(x=>x.aggregates),pit:p.pitcher_ability.map(x=>x.aggregates),...p.environment},p.teams,p.identity_aliases);
+    if (canonical(rebuilt)!==canonical(p) || canonical(header)!==canonical(Object.fromEntries(Object.keys(header).map(k=>[k,prior[k]]))) || await hash(hashBody(prior)) !== prior.content_hash) throw new Error('Corrupt or unsupported PriorSnapshot');
+    return freeze(clone(prior));
+  }
+  function identity(prior,team,id,type) {
+    if (!['bat','pit'].includes(type)) throw new Error('Invalid player type');
+    const list=prior.payload[type==='bat'?'batter_ability':'pitcher_ability'];
+    const direct=list.find(p=>p.team===team&&p.player_id===id);
+    if (direct) return direct.player_id;
+    return prior.payload.identity_aliases[type].find(a=>a.team===team&&a.alias_id===id)?.player_id || null;
+  }
+  function normalizeOfficial(input,prior) {
+    if (!input) return freeze({schema_version:1,season:prior.season,phase:'POSTSEASON',source_kind:'EMPTY',dataset_id:null,bat:[],pit:[],coverage:{complete:false,game_ids:[],event_ids:[]}});
+    if (input.schema_version!==1 || input.season!==prior.season || input.phase!=='POSTSEASON' || !['OFFICIAL_POSTSEASON','TEST_POSTSEASON'].includes(input.source_kind)) throw new Error('Explicit Postseason official data required');
+    if (input.source_kind==='OFFICIAL_POSTSEASON' && (input.origin!=='NPB_OFFICIAL' || !/^https:\/\/npb\.jp\//.test(input.source_url||''))) throw new Error('Official Postseason source required');
+    const coverage=input.coverage || {};
+    if (typeof coverage.complete !== 'boolean') throw new Error('Explicit official coverage completeness required');
+    const bat=normalizePlayers(input.bat,'bat',prior.payload.teams),pit=normalizePlayers(input.pit,'pit',prior.payload.teams);
+    for (const type of ['bat','pit']) for (const player of type==='bat'?bat:pit) player.id=identity(prior,player.team,player.id,type)||player.id;
+    if ([bat,pit].some(rows=>new Set(rows.map(p=>playerKey(p.team,p.id))).size!==rows.length)) throw new Error('Duplicate canonical official player');
+    return freeze({schema_version:1,season:input.season,phase:'POSTSEASON',source_kind:input.source_kind,dataset_id:string(input.dataset_id,'Postseason dataset ID'),
+      ...(input.source_kind==='OFFICIAL_POSTSEASON'?{origin:input.origin,source_url:input.source_url}:{}),
+      bat,pit,coverage:{complete:coverage.complete,game_ids:[...new Set((coverage.game_ids||[]).map(x=>string(x,'game ID')))].sort(),event_ids:[...new Set((coverage.event_ids||[]).map(x=>string(x,'event ID')))].sort()}});
+  }
+  function observationKey(season,team,id) { return `${season}|POSTSEASON|${team}|${id}`; }
+  function observationOverlay(prior,official,learning) {
+    if (learning?.phase && learning.phase!=='POSTSEASON' || learning?.season && learning.season!==prior.season) throw new Error('Regular/other-season learning cannot enter Postseason prediction');
+    const raw=clone(learning || {version:1,phase:'POSTSEASON',season:prior.season,entries:[],steals:[]}),effective={...raw,entries:[],steals:[]},excluded=[];
+    const seen=new Set(),events=new Set(),hasOfficial=official.bat.length>0 || official.pit.length>0;
+    for (const type of ['entries','steals']) for (const row of raw[type] || []) {
+      let reason=null;
+      const isPost=(row.phase || raw.phase)==='POSTSEASON' && (row.season || raw.season)===prior.season;
+      if (!isPost) reason='UNVERIFIED_PHASE';
+      const batter=identity(prior,row.team,type==='steals'?row.runner_id:row.batter_id,'bat'),pitcher=type==='entries'?identity(prior,row.defTeam,row.pitcher_id,'pit'):null;
+      if (!reason && (!batter || type==='entries' && !pitcher)) reason='UNKNOWN_PLAYER_ID';
+      const id=String(row.id || ''),event=row.official_event_id;
+      if (!reason && (!id || seen.has(type+':'+id) || event && events.has(type+':'+event))) reason='DUPLICATE_OBSERVATION';
+      if (!reason && (event && official.coverage.event_ids.includes(event) || row.game_id && official.coverage.game_ids.includes(row.game_id))) reason='OFFICIAL_COVERED';
+      if (!reason && hasOfficial && !(official.coverage.complete && row.game_id && !official.coverage.game_ids.includes(row.game_id))) reason='AMBIGUOUS_OFFICIAL_OVERLAP';
+      if (!reason && type==='entries' && !['1B','2B','3B','HR','BB','K','OUT',null].includes(row.outcome)) reason='INVALID_OUTCOME';
+      if (!reason && type==='steals' && (typeof row.success!=='boolean' || ![1,2,3].includes(row.fromBase))) reason='INVALID_STEAL';
+      if (reason) { excluded.push({id,type,reason});continue; }
+      seen.add(type+':'+id);if(event)events.add(type+':'+event);
+      effective[type].push({...row,...(type==='steals'?{runner_id:batter,runnerKey:observationKey(prior.season,row.team,batter)}:{batter_id:batter,pitcher_id:pitcher,batterKey:observationKey(prior.season,row.team,batter),pitcherKey:observationKey(prior.season,row.defTeam,pitcher)})});
+    }
+    return {observed:freeze(raw),effectiveLearning:freeze(effective),excluded:freeze(excluded)};
+  }
+  function mergedPlayers(prior,official,type) {
+    const fields=type==='bat'?BAT_FIELDS:PIT_FIELDS,rows=prior.payload[type==='bat'?'batter_ability':'pitcher_ability'].map(p=>clone(p.aggregates)),map=new Map(rows.map(p=>[playerKey(p.team,p.id),p]));
+    for (const actual of official[type]) {
+      let target=map.get(playerKey(actual.team,actual.id));
+      if (!target) { target={id:actual.id,team:actual.team,name:actual.name,...Object.fromEntries(fields.map(k=>[k,0]))};rows.push(target);map.set(playerKey(actual.team,actual.id),target); }
+      for (const field of fields) target[field]=(target[field]||0)+(actual[field]||0);
+      for (const field of ['bats','throws','role','spd']) if (actual[field]!==undefined && target[field]===undefined) target[field]=actual[field];
+    }
+    return rows;
+  }
+  function displayStats(official) {
+    return freeze({schema_version:1,season:official.season,phase:'POSTSEASON',source_dataset_id:official.dataset_id,
+      bat:official.bat.map(p=>({...clone(p),avg:p.ab?p.h/p.ab:null})),pit:clone(official.pit)});
+  }
+  function withObservations(layer,learning) { return {...layer,...observationOverlay(layer.prior,layer.official,learning)}; }
+  async function createDataLayer(context) {
+    phaseContext(context.phaseContext);purpose(context.purpose || 'PRODUCTION');
+    const prior=await validatePrior(context.prior);assertConnection(prior,context.phaseContext,context.purpose || 'PRODUCTION');
+    const official=normalizeOfficial(context.officialPostseasonData,prior);
+    if ((context.purpose || 'PRODUCTION')==='PRODUCTION' && official.source_kind==='TEST_POSTSEASON') throw new Error('Test official data cannot enter production');
+    const dataset={season:prior.season,phase:'POSTSEASON',bat:mergedPlayers(prior,official,'bat'),pit:mergedPlayers(prior,official,'pit'),updated:prior.content_hash,snapshotDate:prior.source_baseline_date};
+    const model=buildModelData(dataset,prior.payload.teams);
+    // The league prior stays frozen; only Postseason official aggregates update player/team input.
+    model.lb=clone(prior.payload.league_baseline.batting);model.lp=clone(prior.payload.league_baseline.pitching);
+    const layer={prior,official,dataset,model,environment:prior.payload.environment,displayStats:displayStats(official),purpose:context.purpose || 'PRODUCTION'};
+    return withObservations(layer,context.learning);
+  }
+  class TestPriorRepository {
+    constructor({phaseContext:context,storage}) { phaseContext(context);this.season=context.season;this.storage=storage;this.key=`tigersProbabilityBeta.${context.season}.POSTSEASON.v1.priorStore.test.v1`; }
+    readStore() { const raw=this.storage.getItem(this.key);if(raw===null)return {schema_version:1,priors:{}};const value=JSON.parse(raw);if(value.schema_version!==1||!value.priors||Array.isArray(value.priors)||typeof value.priors!=='object')throw new Error('Invalid test prior store');return value; }
+    async save(prior) {
+      const snapshot=await validatePrior(prior);if(snapshot.source_kind!=='TEST_REGULAR_SNAPSHOT'||snapshot.season!==this.season)throw new Error('Stage 2 persists TEST priors only');
+      const store=this.readStore(),existing=store.priors[snapshot.content_hash];
+      if(existing) { await validatePrior(existing);return existing.prior_id; }
+      store.priors[snapshot.content_hash]=snapshot;this.storage.setItem(this.key,JSON.stringify(store));return snapshot.prior_id;
+    }
+    async get(id) { const prior=Object.values(this.readStore().priors).find(p=>p.prior_id===id);if(!prior)return null;const validated=await validatePrior(prior);if(validated.source_kind!=='TEST_REGULAR_SNAPSHOT'||validated.season!==this.season)throw new Error('Invalid stored test prior');return validated; }
+  }
+  return Object.freeze({MODEL_VERSION,SOURCE_KINDS,buildPrior,validatePrior,assertConnection,identity,observationKey,normalizeOfficial,observationOverlay,buildModelData,abilities,createDataLayer,withObservations,displayStats,TestPriorRepository,canonical});
+});
+// END EMBEDDED postseason-model.js
+</script>
 <script>
 const SEASON = 2026;
+const phaseSessions = new TigersPhase.SessionManager({context:{season:SEASON,phase:"REGULAR"},storage:localStorage});
+window.TigersGameRuntime = phaseSessions;
+function phaseStorage(){return phaseSessions.current.storage}
+function phaseIsRegular(){return phaseSessions.current.context.phase === "REGULAR"}
+function sessionLater(callback,delay){const token=phaseSessions.capture();return setTimeout(()=>{if(phaseSessions.isCurrent(token))callback()},delay)}
+function predictionContext(){const layer=phaseSessions.current.postseasonLayer;return {...TigersPhase.createPredictionContext({phaseContext:phaseSessions.current.context,dataset:phaseIsRegular()?stats:layer?.dataset||null,prior:layer?.prior||null,officialPostseasonData:layer?.official||null,learning:predictionLearning(),purpose:layer?.purpose||'PRODUCTION'}),sessionToken:phaseSessions.capture()}}
+function predictionLearning(){
+  const session=phaseSessions.current;if(phaseIsRegular()||!session.postseasonLayer)return observedLearning;
+  if(session.postseasonLearningRevision!==session.revision){session.postseasonLayer=TigersPostseason.withObservations(session.postseasonLayer,observedLearning);session.postseasonLearningRevision=session.revision}
+  return session.postseasonLayer.effectiveLearning;
+}
+function predictionEnvironment(){return phaseIsRegular()?window.NPB_2026_STATS_SNAPSHOT:phaseSessions.current.postseasonLayer?.environment||null}
+function clearPhasePrediction(){
+  lastPrediction=null;lastSummary=null;
+  for(const id of ["winBig","runProb","runExp","dockWin","dockRunProb","dockRunExp","dockPA","wText","dText","lText","predictionTitle","dialogValue"])if($(id))$(id).textContent="--";
+  for(const id of ["prob1B","prob2B","prob3B","probHR","probBB","probHBP","probK","probOut"])if($(id))$(id).textContent="--";
+  for(const id of ["wp","dp","lp","barOut","bar1B","bar2B","bar3B","barHR","barBB","barK"])if($(id))$(id).style.width="0%";
+  for(const id of ["predictionNote","runNote","runModelLabel","winModelLabel"])if($(id))$(id).textContent="Postseason prior未接続";
+  if($("dialogBody"))$("dialogBody").textContent="";
+}
 const TEAM_T = 'Tigers';
 const TEAMS = [
   ['Giants','読売ジャイアンツ'],['Tigers','阪神タイガース'],['BayStars','横浜DeNAベイスターズ'],
@@ -389,9 +1005,9 @@ const TEAMS = [
 const TEAM_NAME = Object.fromEntries(TEAMS);
 const AVG_LINEUP_ID='__avg__';
 const PITCHER_LINEUP_ID='__pitcher__';
-const OPP_LINEUP_STORAGE='tigersOpponentLineupsV1';
-const BUILTIN_SNAPSHOT_DATE=window.NPB_2026_STATS_SNAPSHOT?.snapshotDate||'2026-09-17';
-const LEARNING_STORAGE='tigersObservedLearningV1';
+const OPP_LINEUP_STORAGE='tigersBetaOpponentLineupsV1';
+const BUILTIN_SNAPSHOT_DATE=window.NPB_2026_STATS_SNAPSHOT?.snapshotDate||'2026-09-23';
+const LEARNING_STORAGE='tigersBetaObservedLearningV1';
 const LEARNING_EVENTS=['1B','2B','3B','HR','BB','K','OUT'];
 const LEARNING_PRIOR_PA=48;
 const DISPLAY_NAME_OVERRIDES={"Akira Yagi":"八木彬","Akito Takabe":"髙部瑛斗","Alexander Canario":"カナリオ","Allan Winans":"ワイナンス","Anderson Espinoza":"エスピノーザ","Andre Jackson":"ジャクソン","Andres Machado":"マチャド","Anko Rin":"林安可","Aren Kuri":"九里亜蓮","Asahi Miyashita":"宮下朝陽","Atsuki Tomosugi":"友杉篤輝","Atsushi Endo":"遠藤淳志","Atsushi Katsumata":"勝又温史","Bob Seymour":"シーモア","Bobby Dalbec":"ダルベック","Carson Mccusker":"マッカスカー","Carter Stewart Jr.":"スチュワート・ジュニア","Chihiro Sumida":"隅田知一郎","Chusei Mannami":"万波中正","Cooper Hummel":"ヒュンメル","Daiki Tajima":"田嶋大樹","Daisuke Moriura":"森浦大輔","Daisuke Nakashima":"中島大輔","Domingo Santana":"サンタナ","Eito Tanaka":"田中瑛斗","Elehuris Montero":"モンテロ","Forrest Whitley":"ウィットリー","Franmil Reyes":"レイエス","Freddy Tarnok":"ターノック","Fumiya Kurokawa":"黒川史陽","Go Matsumoto":"松本剛","Gregory Polanco":"ポランコ","Haru Matsumoto":"松本晴","Haruki Hosono":"細野晴希","Haruto Inoe":"井上温大","Haruto Watanabe":"渡部遼人","Haruya Tanaka":"田中晴也","Hayato Sakamoto":"坂本勇人","Hideaki Wakui":"涌井秀章","Hideki Nagaoka":"長岡秀樹","Hideto Asamura":"浅村栄斗","Hikaru Kawase":"川瀬晃","Hikaru Ota":"太田光","Hiroki Fukunaga":"福永裕基","Hiroki Tokoda":"床田寛樹","Hiromi Ito":"伊藤大海","Hiroshi Kaino":"甲斐野央","Hiroto Kobukata":"小深田大翔","Hiroto Takahashi":"髙橋宏斗","Hirotoshi Takanashi":"高梨裕稔","Hisanori Yasuda":"安田尚憲","Hotaka Yamakawa":"山川穂高","Isami Nomura":"野村勇","Itsuki Murabayashi":"村林一輝","Jason Vosler":"ボスラー","Jerar Encarnacion":"エンカーナシオン","Jose Osuna":"オスナ","Jose Urena":"ウレーニャ","Junichiro Kishi":"岸潤一郎","Kaima Taira":"平良海馬","Kaito Kozono":"小園海斗","Kaito Mori":"森遼大朗","Kaito Muramatsu":"村松開人","Katsuki Azuma":"東克樹","Kazuki Sugiyama":"杉山一樹","Kazunari Ishii":"石井一成","Kazuya Maruyama":"丸山和郁","Kazuya Ojima":"小島和哉","Kazuyuki Takemaru":"竹丸和幸","Keiji Takahashi":"高橋奎二","Keita Nakagawa":"中川圭太","Keita Sano":"佐野恵太","Kengo Matsumoto":"松本健吾","Kengo Yoshida":"吉田賢吾","Kensuke Kondo":"近藤健介","Kenta Imamiya":"今宮健太","Kenta Maeda":"前田健太","Kentaro Shinogi":"篠木健太郎","Kentaro Taira":"平良拳太郎","Kenya Suzuki":"鈴木健矢","Kenya Wakatsuki":"若月健矢","Kohei Arihara":"有原航平","Kojiro Yoshimura":"吉村貢司郎","Koki Kitayama":"北山亘基","Koki Yamaguchi":"山口航輝","Kona Takahashi":"髙橋光成","Kosei Shoji":"荘司康誠","Koshiro Hiroike":"廣池康志郎","Kosuke Ukai":"鵜飼航丞","Kota Tatsu":"達孝太","Kota Yazawa":"矢澤宏太","Kotaro Kiyomiya":"清宮幸太郎","Kotaro Kurebayashi":"紅林弘太郎","Kyle Muller":"マラー","Kyota Fujiwara":"藤原恭大","Kyuto Ueda":"上田希由翔","Manaya Nishikawa":"西川愛也","Masahiro Tanaka":"田中将大","Masaki Mimori":"三森大貴","Masaru Fujii":"藤井聖","Masato Morishita":"森下暢仁","Masayuki Kuwahara":"桑原将志","Miguel Sano":"サノー","Mikiya Tanaka":"田中幹也","Minoru Omori":"大盛穂","Misho Nishikawa":"西川史礁","Naoki Sato":"佐藤直樹","Naoki Yoshikawa":"吉川尚輝","Naoyuki Uwasawa":"上沢直之","Naru Katsuda":"勝田成","Naruki Teranishi":"寺西成騎","Natsuki Takeuchi":"武内夏暉","Natsuo Takizawa":"滝澤夏央","Neftali Soto":"ソト","Norihiko Nabara":"名原典彦","Raidel Martinez":"マルティネス","Ren Fukushima":"福島蓮","Ren Hirakawa":"平川蓮","Ren Mukunoki":"椋木蓮","Riku Masuda":"増田陸","Rikuto Yokoyama":"横山陸人","Roberto Osuna":"オスナ","Rodolfo Castro":"カストロ","Ryo Ota":"太田椋","Ryoji Kuribayashi":"栗林良吏","Ryoma Nishikawa":"西川龍馬","Ryoma Yamanaka":"山中稜真","Ryosuke Kikuchi":"菊池涼介","Ryosuke Otsu":"大津亮介","Ryosuke Tatsumi":"辰己涼介","Ryota Takinaka":"瀧中瞭太","Ryoto Kita":"来田涼斗","Ryoya Kurihara":"栗原陵矢","Ryuhei Sotani":"曽谷龍平","Ryui Ito":"伊藤琉偉","Ryuki Watarai":"度会隆輝","Ryusei Ogawa":"小川龍成","Ryusei Takeoka":"武岡龍世","Ryusei Terachi":"寺地隆成","Ryuya Taira":"平良竜哉","Sam Long":"ロング","Sandro Fabian":"ファビアン","Sean Hjelle":"ジェリー","Sean Reynolds":"レイノルズ","Seiya Hosokawa":"細川成也","Seiya Watanabe":"渡部聖弥","Shinya Hasegawa":"長谷川信哉","Shinya Sugai":"菅井信也","Shion Matsuo":"松尾汐恩","Shogo Akiyama":"秋山翔吾","Shogo Sakakura":"坂倉将吾","Shogo Tamamura":"玉村昇悟","Shohei Mori":"森翔平","Shosei Togo":"戸郷翔征","Shu Masuda":"増田珠","Shugo Maki":"牧秀悟","Shun Mizutani":"水谷瞬","Shun Okamoto":"岡本駿","Shunsuke Sasaki":"佐々木俊輔","Shunsuke Urata":"浦田俊輔","Shuto Ogata":"尾形崇斗","Soichiro Yamazaki":"山﨑颯一郎","Soma Uchiyama":"内山壮真","Sosuke Genda":"源田壮亮","Tai Sasaki":"佐々木泰","Taichi Taka":"髙太一","Taichi Yamano":"山野太一","Taiga Hirasawa":"平沢大河","Taiga Kamichatani":"上茶谷大河","Taiga Kojima":"小島大河","Taiki Mochimaru":"持丸泰輝","Taiki Narama":"奈良間大己","Taisei Makihara":"牧原大成","Taito Takashima":"髙島泰都","Takahiro Norimoto":"則本昂大","Takahisa Hayakawa":"早川隆久","Takashi Umino":"海野隆司","Takaya Ishikawa":"石川昂弥","Takayuki Kato":"加藤貴之","Takayuki Kishi":"岸孝之","Takuma Hayashi":"林琢真","Takumi Oshiro":"大城卓三","Tatsuki Koja":"古謝樹","Tatsuki Mizuno":"水野達稀","Tatsuo Ebina":"蝦名達夫","Tatsuru Yanagimachi":"柳町達","Taylor Hearn":"ハーン","Tokito Kawamura":"河村説人","Tomohisa Ozeki":"大関友久","Tomoya Masaki":"正木智也","Tomoya Mori":"森友哉","Tomoya Noguchi":"野口智哉","Toshiki Abe":"阿部寿樹","Toshiro Miyazaki":"宮﨑敏郎","Toshiya Sato":"佐藤都志也","Trey Cabbage":"キャベッジ","Tyler Nevin":"ネビン","Ukyo Shuto":"周東佑京","Yasuhiro Ogawa":"小川泰弘","Yasunobu Okugawa":"奥川恭伸","Yorinosuke Sakurai":"櫻井頼之介","Yoshiaki Watanabe":"渡邊佳明","Yoshihiro Akahane":"赤羽由紘","Yoshitomo Tsutsugo":"筒香嘉智","Yota Kyoda":"京田陽太","Yua Tamiya":"田宮裕涼","Yudai Koga":"古賀優大","Yudai Ono":"大野雄大","Yudai Shoji":"庄子雄大","Yudai Yamamoto":"山本祐大","Yugo Maeda":"前田悠伍","Yuji Akahoshi":"赤星優志","Yuki Matsumoto":"松本裕樹","Yuki Nomura":"野村佑希","Yuki Okabayashi":"岡林勇希","Yuki Yanagita":"柳田悠岐","Yukihiro Iwata":"岩田幸宏","Yukinori Kishida":"岸田行倫","Yuma Mune":"宗佑磨","Yumeto Kanemaru":"金丸夢斗","Yuta Ishii":"石伊雄太","Yuta Izuguchi":"泉口友汰","Yutaro Ishida":"石田裕太郎","Yutaro Itayama":"板山祐太郎","Yutaro Watanabe":"渡邉勇太朗","Yuto Koga":"古賀悠斗","Yuya Gunji":"郡司裕也","Yuya Ogo":"小郷裕哉","Yuya Yanagi":"柳裕也"};
@@ -464,10 +1080,11 @@ function compactName(x){return String(x||'').replace(/[\s　]/g,'')}
 function localDateValue(date=new Date()){
   const local=new Date(date.getTime()-date.getTimezoneOffset()*60000);return local.toISOString().slice(0,10);
 }
-function currentBaselineKey(){return stats?.updated?`detail-${stats.updated}`:`builtin-${BUILTIN_SNAPSHOT_DATE}`}
-function currentBaselineLabel(){return stats?.updated?`${new Date(stats.updated).toLocaleDateString('ja-JP')}読込版`:`${BUILTIN_SNAPSHOT_DATE.replaceAll('-','/')}内蔵版`}
+function currentBaselineKey(){if(!phaseIsRegular())return phaseSessions.current.postseasonLayer?`postseason-prior-${phaseSessions.current.postseasonLayer.prior.content_hash}`:`postseason-unbound-${phaseSessions.current.context.season}`;return stats?.updated?`detail-${stats.updated}`:`builtin-${BUILTIN_SNAPSHOT_DATE}`}
+function currentBaselineLabel(){if(!phaseIsRegular())return 'Postseason prior未接続';return stats?.updated?`${new Date(stats.updated).toLocaleDateString('ja-JP')}読込版`:`${BUILTIN_SNAPSHOT_DATE.replaceAll('-','/')}内蔵版`}
 function blankObservedLearning(){return {version:1,baselineKey:currentBaselineKey(),startedAt:Date.now(),enabled:true,capture:true,entries:[]}}
 function learningPlayerKey(p){
+  if(!phaseIsRegular())return p&&!p.averageFallback&&!p.pitcherBatter?TigersPostseason.observationKey(phaseSessions.current.context.season,p.team,p.id):'';
   if(!p||p.id===AVG_LINEUP_ID||p.id===PITCHER_LINEUP_ID||p.pitcherBatter)return '';
   return `${p.team||''}|${compactName(displayName(p))}`;
 }
@@ -479,7 +1096,7 @@ function addLearningBucket(map,key,outcome){
 }
 function rebuildLearningIndex(){
   const byBatter=new Map(),byPitcher=new Map(),byMatch=new Map();let eligible=0;
-  for(const entry of observedLearning?.entries||[]){
+  for(const entry of predictionLearning()?.entries||[]){
     if(!learningOutcome(entry.outcome)||(!entry.batterKey&&!entry.pitcherKey))continue;
     eligible++;
     addLearningBucket(byBatter,entry.batterKey,entry.outcome);
@@ -489,10 +1106,11 @@ function rebuildLearningIndex(){
   learningIndex={byBatter,byPitcher,byMatch,eligible};
 }
 function saveObservedLearning(){
-  try{localStorage.setItem(LEARNING_STORAGE,JSON.stringify(observedLearning))}catch(e){toast('観戦データを保存できませんでした')}
+  try{phaseSessions.touch(phaseSessions.current,'learning');phaseSessions.writeLearning(observedLearning)}catch(e){toast('観戦データを保存できませんでした')}
   rebuildLearningIndex();updateLearningUI();
 }
 function ensureLearningBaseline(notify=false){
+  if(!phaseIsRegular())return false; // Prior changes never discard raw Postseason observations.
   if(!observedLearning)observedLearning=blankObservedLearning();
   if(observedLearning.baselineKey===currentBaselineKey())return false;
   const discarded=observedLearning.entries?.length||0;
@@ -502,7 +1120,7 @@ function ensureLearningBaseline(notify=false){
 }
 function loadObservedLearning(){
   try{
-    const raw=localStorage.getItem(LEARNING_STORAGE),x=raw?JSON.parse(raw):null;
+    const x=phaseStorage().readLearning();
     if(x&&x.version===1&&Array.isArray(x.entries))observedLearning={...x,enabled:x.enabled!==false,capture:x.capture!==false,entries:x.entries.slice(-5000)};
   }catch(e){}
   if(!observedLearning)observedLearning=blankObservedLearning();
@@ -559,7 +1177,8 @@ function exportObservedLearning(){
   a.href=URL.createObjectURL(blob);a.download=`tigers_observed_data_${localDateValue()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 }
 async function importObservedLearning(file){
-  const x=JSON.parse(await file.text());
+  const token=phaseSessions.capture();
+  const text=await file.text();if(!phaseSessions.isCurrent(token))return;const x=JSON.parse(text);
   if(x?.version!==1||!Array.isArray(x.entries))throw new Error('対応する観戦データではありません');
   if(x.baselineKey!==currentBaselineKey())throw new Error('基準スナップショットが異なるため読み込めません');
   const validOutcomes=new Set([...LEARNING_EVENTS,null]),entries=x.entries.slice(-5000).filter(e=>e&&validOutcomes.has(e.outcome)).map(e=>({
@@ -572,9 +1191,9 @@ async function importObservedLearning(file){
   saveObservedLearning();history=[];$('undoBtn').disabled=true;scheduleUpdate();toast(`観戦データ ${entries.length}打席を読み込みました`);
 }
 function loadSavedOpponentLineups(){
-  try{const raw=localStorage.getItem(OPP_LINEUP_STORAGE);savedOpponentLineups=raw?JSON.parse(raw):{}}catch(e){savedOpponentLineups={}}
+  try{savedOpponentLineups=phaseStorage().read('opponentLineups',{})}catch(e){savedOpponentLineups={}}
 }
-function persistOpponentLineups(){try{localStorage.setItem(OPP_LINEUP_STORAGE,JSON.stringify(savedOpponentLineups))}catch(e){toast('相手打順を保存できませんでした')}}
+function persistOpponentLineups(){try{phaseSessions.touch();phaseSessions.write('opponentLineups',savedOpponentLineups)}catch(e){toast('相手打順を保存できませんでした')}}
 function lineupStorageValue(team,id){
   if(id===AVG_LINEUP_ID||id===PITCHER_LINEUP_ID)return id;
   const p=getPlayerById(team,id,'bat');return p?displayName(p):AVG_LINEUP_ID;
@@ -604,7 +1223,7 @@ function sortKeyFor(p){
   return shown;
 }
 function sortedPlayers(arr){return [...(arr||[])].sort((a,b)=>jaCollator.compare(sortKeyFor(a),sortKeyFor(b))||jaCollator.compare(displayName(a),displayName(b)))}
-function pitcherMeta(p){return p?.team===TEAM_T?(TIGERS_PITCHER_META[displayName(p)]||{}):{}}
+function pitcherMeta(p){if(!phaseIsRegular())return {};return p?.team===TEAM_T?(TIGERS_PITCHER_META[displayName(p)]||{}):{}}
 function pitcherRole(p){return p?.role||pitcherMeta(p).role||''}
 function isReliefPitcher(p){const role=pitcherRole(p);return Boolean(role&&role!=='先発')}
 function playerOptionLabel(p,type='bat'){
@@ -1330,7 +1949,7 @@ function updateStatus(){
     $('modelBadge').className='badge good';$('modelBadge').textContent='2026初期選手モデル';
   }
 }
-function saveStats(){try{localStorage.setItem('tigersStatsV5',JSON.stringify(stats))}catch(e){toast('保存容量エラー')}}
+function saveStats(){try{phaseSessions.touch();phaseSessions.write('stats',stats)}catch(e){toast('保存容量エラー')}}
 function stableBuiltinStats(){
   const source=window.NPB_2026_STATS_SNAPSHOT;if(!source?.bat?.length||!source?.pit?.length)return null;
   const stable=(players,type)=>players.map(player=>{
@@ -1340,18 +1959,23 @@ function stableBuiltinStats(){
   return {bat:stable(source.bat,'bat'),pit:stable(source.pit,'pit'),updated:source.updated,snapshotDate:source.snapshotDate,parks:source.parks,platoon:source.platoon,builtin:true};
 }
 function loadStats(){
+  if(!phaseIsRegular()){stats=null;model=null;return}
   const builtin=stableBuiltinStats();let saved=null;
-  try{const x=localStorage.getItem('tigersStatsV5')||localStorage.getItem('tigersStatsV4')||localStorage.getItem('tigersStatsV3');if(x)saved=JSON.parse(x)}catch(e){}
+  try{const x=phaseStorage().getItem('stats')||phaseStorage().getItem('statsV4')||phaseStorage().getItem('statsV3');if(x)saved=JSON.parse(x)}catch(e){}
   stats=saved?.bat?.length&&saved?.pit?.length&&saved.snapshotDate>=builtin?.snapshotDate?saved:(builtin||saved);
   buildModel();updateStatus();refreshPlayerUI();
 }
 async function importBat(file){
-  const rows=parseCSV(await file.text()),bat=reduceBat(rows);
+  const token=phaseSessions.capture();
+  if(!phaseIsRegular())throw new Error('Stage 1ではPostseasonの成績import・prior接続は未対応です');
+  const text=await file.text();if(!phaseSessions.isCurrent(token))return;const rows=parseCSV(text),bat=reduceBat(rows);
   if(bat.length<30)throw new Error('2026年の打撃データを十分に認識できませんでした');
   stats=stats||{};stats.bat=bat;stats.updated=Date.now();stats.snapshotDate=localDateValue();stats.builtin=false;saveStats();buildModel();const learningReset=ensureLearningBaseline(false);updateStatus();refreshPlayerUI();scheduleUpdate();toast(`打者 ${bat.length}人を読み込みました${learningReset?'。旧観戦学習は破棄しました':''}`);
 }
 async function importPit(file){
-  const rows=parseCSV(await file.text()),pit=reducePit(rows);
+  const token=phaseSessions.capture();
+  if(!phaseIsRegular())throw new Error('Stage 1ではPostseasonの成績import・prior接続は未対応です');
+  const text=await file.text();if(!phaseSessions.isCurrent(token))return;const rows=parseCSV(text),pit=reducePit(rows);
   if(pit.length<30)throw new Error('2026年の投手データを十分に認識できませんでした');
   stats=stats||{};stats.pit=pit;stats.updated=Date.now();stats.snapshotDate=localDateValue();stats.builtin=false;saveStats();buildModel();const learningReset=ensureLearningBaseline(false);updateStatus();refreshPlayerUI();scheduleUpdate();toast(`投手 ${pit.length}人を読み込みました${learningReset?'。旧観戦学習は破棄しました':''}`);
 }
@@ -1361,7 +1985,9 @@ function exportData(){
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`npb2026_player_data_${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 }
 async function importJson(file){
-  const x=JSON.parse(await file.text());if(x.season!==SEASON||!Array.isArray(x.bat)||!Array.isArray(x.pit))throw new Error('対応する共有データではありません');
+  const token=phaseSessions.capture();
+  if(!phaseIsRegular())throw new Error('Stage 1ではPostseasonの成績import・prior接続は未対応です');
+  const text=await file.text();if(!phaseSessions.isCurrent(token))return;const x=JSON.parse(text);if(x.season!==SEASON||!Array.isArray(x.bat)||!Array.isArray(x.pit))throw new Error('対応する共有データではありません');
   stats={bat:x.bat,pit:x.pit,updated:x.updated||Date.now(),snapshotDate:x.snapshotDate||localDateValue(),parks:x.parks||window.NPB_2026_STATS_SNAPSHOT?.parks,platoon:x.platoon||window.NPB_2026_STATS_SNAPSHOT?.platoon,builtin:false};saveStats();buildModel();const learningReset=ensureLearningBaseline(false);updateStatus();refreshPlayerUI();scheduleUpdate();toast(`共有データを読み込みました${learningReset?'。旧観戦学習は破棄しました':''}`);
 }
 function setHalf(v,reset=false){
@@ -1370,8 +1996,9 @@ function setHalf(v,reset=false){
   if(reset&&changed){resetOutsAndBases();setSubstitutionStatus('')}
   refreshRunnerOptions();refreshSubstitutionUI();scheduleUpdate();
 }
-function scheduleUpdate(){clearTimeout(calcTimer);calcTimer=setTimeout(update,40)}
+function scheduleUpdate(){clearTimeout(calcTimer);calcTimer=sessionLater(update,40)}
 function update(){
+  const context=predictionContext();if(context.phaseContext.phase!=="REGULAR"){clearPhasePrediction();return}
   const ha=$('homeAway').value,opp=$('opponent').value,bat=battingTeam(ha,half);
   const speed=runnerSpeedFactor(bat),speedNote=Math.abs(speed-1)>.001?` 走者の走力補正 ${speed.toFixed(3)}倍。`:'';
   const learningNote=observedLearning?.enabled&&learningIndex?.eligible?' 観戦データ学習を追加反映。':'';
@@ -1444,18 +2071,120 @@ $('importBatBtn').onclick=()=>$('batFile').click();$('importPitBtn').onclick=()=
 $('learningCapture').addEventListener('change',e=>{observedLearning.capture=e.target.checked;saveObservedLearning()});
 $('learningEnabled').addEventListener('change',e=>{observedLearning.enabled=e.target.checked;saveObservedLearning();scheduleUpdate()});
 $('clearLearningBtn').onclick=clearObservedLearning;$('exportLearningBtn').onclick=exportObservedLearning;$('importLearningBtn').onclick=()=>$('learningFile').click();
-$('batFile').onchange=async e=>{try{if(e.target.files[0])await importBat(e.target.files[0])}catch(err){toast(err.message)}e.target.value=''};
-$('pitFile').onchange=async e=>{try{if(e.target.files[0])await importPit(e.target.files[0])}catch(err){toast(err.message)}e.target.value=''};
-$('jsonFile').onchange=async e=>{try{if(e.target.files[0])await importJson(e.target.files[0])}catch(err){toast(err.message)}e.target.value=''};
-$('learningFile').onchange=async e=>{try{if(e.target.files[0])await importObservedLearning(e.target.files[0])}catch(err){toast(err.message)}e.target.value=''};
+async function handleSessionImport(event,action){
+  const token=phaseSessions.capture(),input=event.target;
+  try{if(input.files[0])await action(input.files[0])}catch(error){if(phaseSessions.isCurrent(token))toast(error.message)}
+  if(phaseSessions.current.id===token.sessionId&&phaseSessions.epoch===token.epoch)input.value='';
+}
+$('batFile').onchange=event=>handleSessionImport(event,importBat);
+$('pitFile').onchange=event=>handleSessionImport(event,importPit);
+$('jsonFile').onchange=event=>handleSessionImport(event,importJson);
+$('learningFile').onchange=event=>handleSessionImport(event,importObservedLearning);
 document.querySelectorAll('#probDock button').forEach(b=>b.onclick=()=>openProbabilityDetail(b.dataset.detail));
 loadStats();loadObservedLearning();update();
-if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js',{type:'module'}).catch(()=>{}));
 </script>
-<script src="./app-v10.js?v=mobile-lineup-1"></script>
-<script src="./vendor/supabase-2.112.4.js"></script>
-<script src="./supabase-config.js"></script>
-<script src="./game-log-v3.js"></script>
-<script type="module" src="./league-simulator-ui.mjs?v=empty-overrides-1"></script>
+<script src="./app-v10.js?v=postseason-v5.0.0"></script>
+<script type="module" src="./league-simulator-ui.mjs?v=production-20260923-1"></script>
+<script>
+// BEGIN EMBEDDED app-mode-navigation.js
+(function(root) {
+  'use strict';
+  // Display selection and game ownership use the same explicit PhaseContext.
+  function create({document, phaseAPI, gameRuntime, beforeChange, beforeFeatureChange = () => {}, afterChange = () => {}, loadSeries}) {
+    const byId = id => document.getElementById(id), season = gameRuntime.active.context.season;
+    let phaseContext = phaseAPI.createPhaseContext({season, phase: 'REGULAR'}), feature = 'series', seriesView = null, loadPromise = null;
+    let epoch = 0, regularGameHidden = false;
+    const game = byId('gameProbabilityView'), gameParent = game.parentNode, gameNext = game.nextSibling;
+    const modeButtons = [byId('regularModeTab'), byId('postseasonModeTab')];
+    const featureButtons = ['game', 'series', 'stats'].map(name => byId('postseason' + name[0].toUpperCase() + name.slice(1) + 'Tab'));
+    function selected(buttons, current) {
+      buttons.forEach(button => { const yes = button === current; button.classList.toggle('active', yes); button.setAttribute('aria-selected', String(yes)); button.tabIndex = yes ? 0 : -1; });
+    }
+    function keyboard(buttons) {
+      buttons.forEach((button, index) => button.addEventListener('keydown', event => {
+        let next;
+        if (event.key === 'ArrowRight') next = (index + 1) % buttons.length;
+        else if (event.key === 'ArrowLeft') next = (index + buttons.length - 1) % buttons.length;
+        else if (event.key === 'Home') next = 0;
+        else if (event.key === 'End') next = buttons.length - 1;
+        else return;
+        event.preventDefault(); buttons[next].focus(); buttons[next].click();
+      }));
+    }
+    function render() {
+      const post = phaseContext.phase === 'POSTSEASON';
+      document.body.classList.toggle('postseasonMode', post);
+      document.body.classList.toggle('postseasonGameMode', post && feature === 'game');
+      document.body.classList.toggle('leagueSimulatorMode', !post && !byId('leagueSimulatorView').hidden);
+      if (post) {
+        if (game.parentNode === gameParent) regularGameHidden = game.hidden;
+        byId('postseasonGamePanel').appendChild(game); game.hidden = false;
+      } else if (game.parentNode !== gameParent) {
+        gameParent.insertBefore(game, gameNext); game.hidden = regularGameHidden;
+      }
+      byId('regularModeView').hidden = post; byId('regularModeView').inert = post;
+      byId('postseasonModeView').hidden = !post; byId('postseasonModeView').inert = !post;
+      for (const id of ['probDock', 'gameDock', 'historyDock']) if (byId(id)) byId(id).inert = post && feature !== 'game';
+      selected(modeButtons, modeButtons[post ? 1 : 0]);
+      selected(featureButtons, featureButtons[['game', 'series', 'stats'].indexOf(feature)]);
+      for (const name of ['game', 'series', 'stats']) byId('postseason' + name[0].toUpperCase() + name.slice(1) + 'Panel').hidden = name !== feature;
+    }
+    async function ensureSeries() {
+      if (seriesView) return seriesView;
+      if (!loadPromise) loadPromise = loadSeries().then(module => {
+        seriesView = module.createSeriesView({root: byId('postseasonSeriesPanel'), phaseContext: phaseAPI.createPhaseContext({season, phase: 'POSTSEASON'}), purpose: gameRuntime.completionPurpose?.() || 'PRODUCTION'});
+        seriesView.deactivate(); return seriesView;
+      }).catch(() => { loadPromise = null; byId('postseasonSeriesPanel').textContent = 'シリーズ表示を読み込めません。接続を確認してから、もう一度「シリーズ」を選択してください。'; return null; });
+      return loadPromise;
+    }
+    async function activateSeries(request) {
+      const view = await ensureSeries();
+      if (view && request === epoch && phaseContext.phase === 'POSTSEASON' && feature === 'series') view.activate();
+    }
+    function selectMode(phase) {
+      const next = phaseAPI.createPhaseContext({season, phase});
+      if (next.phase === phaseContext.phase) return true;
+      const previous=phaseContext,previousEpoch=epoch;let transaction;
+      try {
+        transaction=beforeChange(next);seriesView?.deactivate();phaseContext=next;epoch++;
+        byId('modeNavigationStatus').textContent='';render();afterChange();transaction?.commit?.();
+      } catch(error) {
+        transaction?.rollback?.();phaseContext=previous;epoch=previousEpoch;render();
+        byId('modeNavigationStatus').textContent=error.navigationMessage||'modeの切替を完了できませんでした。元の画面を維持しています。';
+        if(previous.phase==='POSTSEASON'&&feature==='series')void activateSeries(epoch);
+        return false;
+      }
+      if (phase === 'POSTSEASON' && feature === 'series') void activateSeries(epoch);
+      return true;
+    }
+    function selectFeature(next) {
+      if (!['game', 'series', 'stats'].includes(next) || phaseContext.phase !== 'POSTSEASON') return false;
+      try { beforeFeatureChange(); } catch { byId('modeNavigationStatus').textContent = '保存が完了してから画面を切り替えてください。'; return false; }
+      byId('modeNavigationStatus').textContent = ''; seriesView?.deactivate(); feature = next; epoch++; render(); afterChange(); if (next === 'series') void activateSeries(epoch); return true;
+    }
+    modeButtons[0].addEventListener('click', () => selectMode('REGULAR'));
+    modeButtons[1].addEventListener('click', () => selectMode('POSTSEASON'));
+    featureButtons.forEach((button, index) => button.addEventListener('click', () => selectFeature(['game', 'series', 'stats'][index])));
+    keyboard(modeButtons); keyboard(featureButtons); render();
+    return Object.freeze({selectMode, selectFeature, get phaseContext() { return phaseContext; }, get displayedSession() { return gameRuntime.getSession(phaseContext); },
+      get feature() { return feature; }, get seriesView() { return seriesView; }, whenSeriesReady: ensureSeries});
+  }
+  root.TigersModeNavigation = Object.freeze({create});
+  if (typeof module !== 'undefined' && module.exports) module.exports = root.TigersModeNavigation;
+})(typeof globalThis !== 'undefined' ? globalThis : this);
+// END EMBEDDED app-mode-navigation.js
+// One game DOM is hydrated only through the explicit session boundary.
+window.TigersModeUI = TigersModeNavigation.create({document, phaseAPI: TigersPhase, gameRuntime: phaseSessions,
+  beforeChange(context) {
+    for (const guard of phaseSessions.switchGuards) if (!guard(context)) throw Object.assign(new Error('Active Regular operation'), {navigationMessage: 'What-ifの操作を終了してからmodeを切り替えてください。'});
+    if (phaseSessions.isNextGameTransitioning()) throw Object.assign(new Error('Game transition in progress'), {navigationMessage: '次の試合への切替が完了してからmodeを切り替えてください。'});
+    return phaseSessions.activatePhase(context,{deferCommit:true});
+  },
+  beforeFeatureChange: () => phaseSessions.parkGameUI(),
+  afterChange: () => phaseSessions.renderActiveGame(),
+  loadSeries: () => import('./postseason-series-ui.mjs')
+});
+</script>
 </body>
 </html>

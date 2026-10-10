@@ -1,7 +1,7 @@
 (() => {
 'use strict';
 
-const GAME_STORAGE = 'tigersGameStateV1';
+const GAME_STORAGE = 'tigersBetaGameStateV1';
 const AVG_PITCHER_ID = '__avg_pitcher__';
 const rosterSnapshot = window.NPB_2026_ROSTER_SNAPSHOT || {snapshotDate:'',rosters:{}};
 const statsSnapshot = window.NPB_2026_STATS_SNAPSHOT || {snapshotDate:'',parks:{factors:{}},platoon:{factors:{}}};
@@ -14,16 +14,23 @@ let pitcherUsageRoles = {};
 let lastAction = '';
 let autosaveTimer = null;
 let searchTarget = null;
+let searchToken = null;
+let stealToken = null;
 let stealBase = 0;
 let redoHistory = [];
 let gameEnded = false;
 let gameEndReason = '';
+let gameRuleStatus = 'ACTIVE';
+let gameRulePendingReason = '';
+let pendingRuleBoundary = null, completionProof = null, postseasonHalfStart = null;
+const testRuntimeEnabled = window.TIGERS_TEST_RUNTIME?.enabled === true;
+let nextGameTransitioning = false;
 let pendingRunnerPlay = null;
 let openDockPanel = '';
 let dockProxyClick = false;
 let lastCalculationDetail = null;
-const pendingControlHistory = new WeakMap();
-const dockControlHistory = new WeakMap();
+let pendingControlHistory = new WeakMap();
+let dockControlHistory = new WeakMap();
 
 function normalizedName(value){
   return String(value||'').normalize('NFKC').replace(/[\s　・.]/g,'').replace(/髙/g,'高').replace(/﨑/g,'崎').toLowerCase();
@@ -59,6 +66,14 @@ function hydrateRoster(target){
 
 hydrateRoster(initialModel);
 if(model)hydrateRoster(model);
+// Unbound Postseason offers official roster identities, without Regular ability/stats.
+const postseasonRoster={byBat:{},byPit:{}};
+for(const [team,players]of Object.entries(rosterSnapshot.rosters||{})){
+  postseasonRoster.byBat[team]=players.filter(p=>p.position!=='投手').map(p=>({id:p.id,team,name:p.name,role:p.position,rosterFallback:true}));
+  postseasonRoster.byPit[team]=players.filter(p=>p.position==='投手').map(p=>({id:p.id,team,name:p.name,role:p.position,rosterFallback:true}));
+}
+const regularActiveModel=activeModel;
+activeModel=function(){return phaseIsRegular()?regularActiveModel():model||postseasonRoster};
 const buildModelV09=buildModel;
 buildModel=function(){buildModelV09();hydrateRoster(initialModel);if(model)hydrateRoster(model)};
 
@@ -160,8 +175,19 @@ function createGameResultDialog(){
     <div class="gameResultActions"><button type="button" class="secondary" id="gameResultBack">戻る</button><button type="button" class="primary" id="startNextGame">次の試合へ</button></div>`;
   document.body.appendChild(dialog);
   $('gameResultBack').onclick=returnToFinishedGame;
-  $('startNextGame').onclick=startNextGame;
+  $('startNextGame').onclick=requestNextGame;
   dialog.addEventListener('cancel',event=>{event.preventDefault();returnToFinishedGame()});
+}
+function createNextGameConfirmDialog(){
+  const dialog=document.createElement('dialog');dialog.id='nextGameConfirmDialog';dialog.className='nextGameConfirmDialog';dialog.innerHTML=`
+    <div class="dialogHeader"><strong>次の試合へ</strong></div>
+    <p>この試合はまだ終了していません。ここまでの入力を残して、次の試合へ進みますか？</p>
+    <div class="nextGameConfirmActions"><button type="button" class="secondary" id="cancelNextGame">キャンセル</button><button type="button" class="primary" id="confirmNextGame">次の試合へ</button></div>`;
+  document.body.appendChild(dialog);
+  const cancel=()=>{if(dialog.open)dialog.close()};
+  $('cancelNextGame').onclick=cancel;
+  $('confirmNextGame').onclick=beginNextGame;
+  dialog.addEventListener('cancel',event=>{event.preventDefault();cancel()});
 }
 function createRunnerAdvanceDialog(){
   const dialog=document.createElement('dialog');dialog.id='runnerAdvanceDialog';dialog.className='runnerAdvanceDialog';dialog.innerHTML=`
@@ -217,9 +243,10 @@ function inferredParkId(){
   return PRIMARY_PARK_BY_TEAM[homeTeam]||'';
 }
 function currentParkInfo(){
+  const environment=phaseIsRegular()?statsSnapshot:predictionEnvironment();
   const setting=$('ballpark')?.value||'auto',id=setting==='auto'?inferredParkId():setting;
-  if(id==='neutral'||!id)return {id:'neutral',name:'球場補正なし',games:0,runsPerGame:statsSnapshot.parks?.leagueRunsPerGame||0,factor:1,setting};
-  const park=statsSnapshot.parks?.factors?.[id];
+  if(id==='neutral'||!id)return {id:'neutral',name:'球場補正なし',games:0,runsPerGame:environment?.parks?.leagueRunsPerGame||0,factor:1,setting};
+  const park=environment?.parks?.factors?.[id];
   return park?{...park,setting}:{id,name:'球場補正なし',games:0,runsPerGame:0,factor:1,setting};
 }
 function createBallparkControl(shell){
@@ -258,6 +285,7 @@ function createGameDock(){
         <div class="dockGameGrid"><div><label for="dockInning">イニング</label><select id="dockInning"></select></div><div class="dockHalfControl"><label>表・裏</label><div class="dockSegment"><button type="button" id="dockTop">表</button><button type="button" id="dockBottom">裏</button><button type="button" id="dockNextHalf">次の半回</button></div></div></div>
         <div class="dockScoreGrid"><div><label for="dockTigersScore">阪神</label><input id="dockTigersScore" type="number" inputmode="numeric" min="0" max="99"></div><div class="dockScoreDash">－</div><div><label for="dockOpponentScore">相手</label><input id="dockOpponentScore" type="number" inputmode="numeric" min="0" max="99"></div></div>
         <label>アウト</label><div class="dockSegment dockOutButtons"><button type="button" data-dock-out="0">0</button><button type="button" data-dock-out="1">1</button><button type="button" data-dock-out="2">2</button></div>
+        <div class="dockNextGameRow"><button type="button" id="dockStartNextGame">次の試合へ</button></div>
       </div>
       <div class="gameDockPanel" data-dock-panel="count" hidden>
         <div class="dockPanelHeading">ボール・ストライク</div>
@@ -272,6 +300,7 @@ function createGameDock(){
   document.querySelectorAll('.gameDockTab').forEach(button=>button.onclick=()=>setDockPanel(button.dataset.dockPanel));
   copySelectOptions($('inning'),$('dockInning'));mirrorDockValue($('dockInning'),$('inning'));mirrorDockValue($('dockTigersScore'),$('tigersScore'));mirrorDockValue($('dockOpponentScore'),$('oppScore'));
   $('dockTop').onclick=()=>clickDockSource('#topBtn');$('dockBottom').onclick=()=>clickDockSource('#botBtn');$('dockNextHalf').onclick=()=>{clickDockSource('#nextHalf');closeGameDock()};
+  $('dockStartNextGame').onclick=requestNextGame;
   document.querySelectorAll('[data-dock-out]').forEach(button=>button.onclick=()=>clickDockSource(`.outBtn[data-o="${button.dataset.dockOut}"]`));
   document.querySelectorAll('[data-dock-ball]').forEach(button=>button.onclick=()=>clickDockSource(`.ballBtn[data-count="${button.dataset.dockBall}"]`));
   document.querySelectorAll('[data-dock-strike]').forEach(button=>button.onclick=()=>clickDockSource(`.strikeBtn[data-count="${button.dataset.dockStrike}"]`));
@@ -338,8 +367,8 @@ function decorateLineupReordering(){
   }
 }
 function openPlayerSearch(select){
-  searchTarget=select;$('playerSearchTitle').textContent=`${selectLabel(select)}を検索`;$('playerSearchInput').value='';renderSearchResults();
-  const dialog=$('playerSearchDialog');dialog.showModal();setTimeout(()=>$('playerSearchInput').focus(),0);
+  searchTarget=select;searchToken=phaseSessions.capture();$('playerSearchTitle').textContent=`${selectLabel(select)}を検索`;$('playerSearchInput').value='';renderSearchResults();
+  const dialog=$('playerSearchDialog');dialog.showModal();sessionLater(()=>$('playerSearchInput').focus(),0);
 }
 function renderSearchResults(){
   const results=$('playerSearchResults');results.innerHTML='';if(!searchTarget)return;
@@ -348,7 +377,7 @@ function renderSearchResults(){
   for(const option of options){
     const button=document.createElement('button');button.type='button';button.className='playerSearchResult';button.textContent=option.textContent;
     if(option.value===searchTarget.value)button.classList.add('active');
-    button.onclick=()=>{pushHistory();searchTarget.value=option.value;searchTarget.dispatchEvent(new Event('input',{bubbles:true}));searchTarget.dispatchEvent(new Event('change',{bubbles:true}));$('playerSearchDialog').close()};
+    const token=searchToken;button.onclick=()=>{if(!searchTarget||!phaseSessions.isCurrent(token))return;pushHistory();searchTarget.value=option.value;searchTarget.dispatchEvent(new Event('input',{bubbles:true}));searchTarget.dispatchEvent(new Event('change',{bubbles:true}));$('playerSearchDialog').close()};
     results.appendChild(button);
   }
   if(!options.length){const empty=document.createElement('div');empty.className='playerSearchEmpty';empty.textContent='該当する選手はいません';results.appendChild(empty)}
@@ -358,6 +387,7 @@ createFieldStateUI();
 createSearchDialog();
 createStealDialog();
 createGameResultDialog();
+createNextGameConfirmDialog();
 createRunnerAdvanceDialog();
 createGameDock();
 
@@ -401,7 +431,7 @@ function applyEnvironmentFactor(probs,factor,kind){
 function matchupHandInfo(batter,pitcher){
   const bats=batter?.bats||'',throws=pitcher?.throws||'';
   if(!bats||!throws)return {code:'',factor:1,label:'左右情報なし'};
-  const code=`${bats}${throws}`,factor=Number(statsSnapshot.platoon?.factors?.[code]||1);
+  const code=`${bats}${throws}`,environment=phaseIsRegular()?statsSnapshot:predictionEnvironment(),factor=Number(environment?.platoon?.factors?.[code]||1);
   const handLabel={L:'左',R:'右',S:'両'};
   return {code,factor,label:`${handLabel[bats]||'?'}打 vs ${handLabel[throws]||'?'}投`};
 }
@@ -420,7 +450,7 @@ function calculationPrediction(){
     batter:{name:matchup.batter?displayName(matchup.batter):`${TEAM_NAME[matchup.team]} 野手平均`,pa:matchup.batter?.pa||0},
     pitcher:{name:matchup.pitcher?displayName(matchup.pitcher):`${TEAM_NAME[matchup.def]} 投手平均`,bf:matchup.pitcher?.bf||0},
     evidence:{weighted:evidence.n,direct:direct?.n||0},hands,park,fatigue,load,balls,strikes,
-    snapshotDate:statsSnapshot.snapshotDate||BUILTIN_SNAPSHOT_DATE,
+    snapshotDate:phaseIsRegular()?(statsSnapshot.snapshotDate||BUILTIN_SNAPSHOT_DATE):phaseSessions.current.postseasonLayer.prior.source_baseline_date,
   };
   return {...matchup,probs,calculation:lastCalculationDetail};
 }
@@ -491,16 +521,27 @@ function ensureObservationShape(){
   observedLearning.entries=(observedLearning.entries||[]).map(entry=>{const clean={...entry};delete clean.balls;delete clean.strikes;return clean});
   if(!Array.isArray(observedLearning.steals))observedLearning.steals=[];
 }
-blankObservedLearning=function(){return {version:1,baselineKey:currentBaselineKey(),startedAt:Date.now(),enabled:true,capture:true,entries:[],steals:[]}};
+blankObservedLearning=function(){return {version:1,...(phaseIsRegular()?{}:{season:phaseSessions.current.context.season,phase:'POSTSEASON'}),baselineKey:currentBaselineKey(),startedAt:Date.now(),enabled:true,capture:true,entries:[],steals:[]}};
+function postseasonObservationIdentity(entry){
+  if(phaseIsRegular())return {};
+  const result={season:phaseSessions.current.context.season,phase:'POSTSEASON'};
+  for(const key of ['batter_id','pitcher_id','runner_id','game_id','official_event_id','prior_id_at_recording'])if(typeof entry[key]==='string')result[key]=entry[key];
+  return result;
+}
+function currentObservationIdentity(matchup={}){
+  if(phaseIsRegular())return {};
+  return {season:phaseSessions.current.context.season,phase:'POSTSEASON',batter_id:matchup.batter?.id||null,pitcher_id:matchup.pitcher?.id||null,
+    game_id:phaseSessions.current.postseasonBinding?.game_id||phaseSessions.current.postseasonBinding?.official_game_id||phaseSessions.current.context.game_id||null,prior_id_at_recording:phaseSessions.current.postseasonLayer?.prior.prior_id||null};
+}
 learningOutcome=function(play){return play==='DP'||play==='ADV'?'OUT':LEARNING_EVENTS.includes(play)?play:null};
 recordPlateObservation=function(play,matchup){
   if(!observedLearning?.capture)return;const now=Date.now();
-  observedLearning.entries.push({id:`${now}-${Math.random().toString(36).slice(2,8)}`,recordedAt:now,gameDate:$('learningGameDate').value||localDateValue(),team:matchup.team,defTeam:matchup.def,batterKey:learningPlayerKey(matchup.batter),pitcherKey:learningPlayerKey(matchup.pitcher),batterName:matchup.batter?displayName(matchup.batter):'',pitcherName:matchup.pitcher?displayName(matchup.pitcher):'',result:play,outcome:learningOutcome(play)});
+  observedLearning.entries.push({id:`${now}-${Math.random().toString(36).slice(2,8)}`,recordedAt:now,gameDate:$('learningGameDate').value||localDateValue(),team:matchup.team,defTeam:matchup.def,...currentObservationIdentity(matchup),batterKey:learningPlayerKey(matchup.batter),pitcherKey:learningPlayerKey(matchup.pitcher),batterName:matchup.batter?displayName(matchup.batter):'',pitcherName:matchup.pitcher?displayName(matchup.pitcher):'',result:play,outcome:learningOutcome(play)});
   if(observedLearning.entries.length>5000)observedLearning.entries=observedLearning.entries.slice(-5000);saveObservedLearning();
 };
 function recordSteal(success,runner,team,fromBase){
   if(!observedLearning?.capture)return;ensureObservationShape();const now=Date.now();
-  observedLearning.steals.push({id:`sb-${now}-${Math.random().toString(36).slice(2,7)}`,recordedAt:now,gameDate:$('learningGameDate').value||localDateValue(),team,runnerKey:learningPlayerKey(runner),runnerName:runner?displayName(runner):'',fromBase,success:Boolean(success)});
+  observedLearning.steals.push({id:`sb-${now}-${Math.random().toString(36).slice(2,7)}`,recordedAt:now,gameDate:$('learningGameDate').value||localDateValue(),team,...(phaseIsRegular()?{}:{season:phaseSessions.current.context.season,phase:'POSTSEASON',runner_id:runner?.id||null,game_id:phaseSessions.current.postseasonBinding?.game_id||phaseSessions.current.postseasonBinding?.official_game_id||phaseSessions.current.context.game_id||null,prior_id_at_recording:phaseSessions.current.postseasonLayer?.prior.prior_id||null}),runnerKey:learningPlayerKey(runner),runnerName:runner?displayName(runner):'',fromBase,success:Boolean(success)});
   if(observedLearning.steals.length>2000)observedLearning.steals=observedLearning.steals.slice(-2000);saveObservedLearning();
 }
 updateLearningUI=function(){
@@ -518,15 +559,22 @@ exportObservedLearning=function(){
   const payload={...observedLearning,exportedAt:Date.now(),baselineLabel:currentBaselineLabel()},blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),anchor=document.createElement('a');anchor.href=URL.createObjectURL(blob);anchor.download=`tigers_observed_data_${localDateValue()}.json`;anchor.click();setTimeout(()=>URL.revokeObjectURL(anchor.href),1000);
 };
 importObservedLearning=async function(file){
-  const data=JSON.parse(await file.text());if(data?.version!==1||!Array.isArray(data.entries))throw new Error('対応する観戦データではありません');if(data.baselineKey!==currentBaselineKey())throw new Error('基準スナップショットが異なるため読み込めません');
+  const token=phaseSessions.capture();
+  const text=await file.text();if(!phaseSessions.isCurrent(token))return;const data=JSON.parse(text);if(data?.version!==1||!Array.isArray(data.entries))throw new Error('対応する観戦データではありません');
+  if(phaseIsRegular()){if(data.phase&&data.phase!=='REGULAR'||data.season&&data.season!==phaseSessions.current.context.season)throw new Error('Regular以外の観戦データは読み込めません');if(data.baselineKey!==currentBaselineKey())throw new Error('基準スナップショットが異なるため読み込めません')}
+  else if(data.phase!=='POSTSEASON'||data.season!==phaseSessions.current.context.season)throw new Error('Postseason観戦データのseason / phaseが異なります');
+  if(!phaseIsRegular()&&[...data.entries,...(Array.isArray(data.steals)?data.steals:[])].some(entry=>entry&&(entry.phase&&entry.phase!=='POSTSEASON'||entry.season&&entry.season!==data.season)))throw new Error('別season / phaseの観戦入力が含まれています');
   const valid=new Set([...LEARNING_EVENTS,null]),entries=data.entries.slice(-5000).filter(entry=>entry&&valid.has(entry.outcome)).map(entry=>({id:String(entry.id||`${Date.now()}-${Math.random()}`).slice(0,80),recordedAt:num(entry.recordedAt)||Date.now(),gameDate:/^\d{4}-\d{2}-\d{2}$/.test(entry.gameDate)?entry.gameDate:localDateValue(),team:String(entry.team||'').slice(0,30),defTeam:String(entry.defTeam||'').slice(0,30),batterKey:String(entry.batterKey||'').slice(0,100),pitcherKey:String(entry.pitcherKey||'').slice(0,100),batterName:String(entry.batterName||'').slice(0,80),pitcherName:String(entry.pitcherName||'').slice(0,80),result:String(entry.result||''),outcome:entry.outcome}));
   const steals=Array.isArray(data.steals)?data.steals.slice(-2000).map(entry=>({id:String(entry.id||`sb-${Date.now()}-${Math.random()}`).slice(0,80),recordedAt:num(entry.recordedAt)||Date.now(),gameDate:/^\d{4}-\d{2}-\d{2}$/.test(entry.gameDate)?entry.gameDate:localDateValue(),team:String(entry.team||'').slice(0,30),runnerKey:String(entry.runnerKey||'').slice(0,100),runnerName:String(entry.runnerName||'').slice(0,80),fromBase:clamp(num(entry.fromBase),1,3),success:Boolean(entry.success)})):[];
-  if(!confirm(`現在の観戦データを、読み込んだ ${entries.length}打席・盗塁${steals.length}件で置き換えますか？`))return;observedLearning={version:1,baselineKey:currentBaselineKey(),startedAt:num(data.startedAt)||Date.now(),enabled:data.enabled!==false,capture:data.capture!==false,entries,steals};saveObservedLearning();history=[];redoHistory=[];syncHistoryControls();scheduleUpdate();setLastAction('観戦データを読み込みました');
+  if(!phaseIsRegular()){
+    for(const [rows,original] of [[entries,data.entries.slice(-5000).filter(entry=>entry&&valid.has(entry.outcome))],[steals,Array.isArray(data.steals)?data.steals.slice(-2000):[]]])rows.forEach((row,i)=>Object.assign(row,postseasonObservationIdentity(original[i])));
+  }
+  if(!confirm(`現在の観戦データを、読み込んだ ${entries.length}打席・盗塁${steals.length}件で置き換えますか？`))return;observedLearning={version:1,...(phaseIsRegular()?{}:{season:phaseSessions.current.context.season,phase:'POSTSEASON'}),baselineKey:currentBaselineKey(),startedAt:num(data.startedAt)||Date.now(),enabled:data.enabled!==false,capture:data.capture!==false,entries,steals};saveObservedLearning();history=[];redoHistory=[];syncHistoryControls();scheduleUpdate();setLastAction('観戦データを読み込みました');
 };
-ensureObservationShape();saveObservedLearning();
+ensureObservationShape();
 
 function stealLearningFactor(player){
-  const key=learningPlayerKey(player);if(!key)return 1;const attempts=(observedLearning?.steals||[]).filter(entry=>entry.runnerKey===key);if(!attempts.length)return 1;
+  const key=learningPlayerKey(player);if(!key)return 1;const attempts=(predictionLearning()?.steals||[]).filter(entry=>entry.runnerKey===key);if(!attempts.length)return 1;
   const success=attempts.filter(entry=>entry.success).length,posterior=(success+12*.72)/(attempts.length+12);return clamp(1+(posterior-.72)*.22,.96,1.04);
 }
 runnerSpeedFactor=function(team){
@@ -543,20 +591,27 @@ function closeGameResult(){const dialog=$('gameResultDialog');if(dialog?.open)di
 function showGameResult(){
   const tigers=teamScore(TEAM_T),opponent=teamScore($('opponent').value),dialog=$('gameResultDialog');
   $('gameResultMessage').textContent=tigers>opponent?'とらほー🐯!!':tigers<opponent?'まけほー……':'引き分け';
+  if(!phaseIsRegular()&&gameEndReason.startsWith('clinch-tie-'))$('gameResultMessage').textContent='引き分け · ステージ突破確定によるコールド';
+  else if(!phaseIsRegular()&&gameEndReason==='draw-at-limit')$('gameResultMessage').textContent='引き分け · 延長上限到達';
   $('gameResultScore').textContent=`阪神 ${tigers} − ${opponent} ${TEAM_NAME[$('opponent').value]}`;
   if(!dialog.open){if(typeof dialog.showModal==='function')dialog.showModal();else dialog.setAttribute('open','')}
 }
+function rulePending(){return !phaseIsRegular()&&gameRuleStatus==='RULE_PENDING'}
+function rejectPendingPlay(){if(!rulePending())return false;toast('大会別継続条件の接続待ちです。打席・走塁入力は停止しています');return true}
+function stopForPendingRules(action='CHECK',reason='POSTSEASON_CONTINUATION_UNCONNECTED'){gameRuleStatus='RULE_PENDING';gameRulePendingReason=reason;pendingRuleBoundary={action,inning:Number($('inning').value),half,outs};syncOutUI();renderBindingStatus();scheduleUpdate();toast(reason.startsWith('CLINCH_')?'特殊終了の正式結果確認待ち：入力を停止しました':'Postseason延長ルール接続待ち：入力を停止しました');return true}
 function finishGame(reason){
-  gameEnded=true;gameEndReason=reason||'game-over';if(gameEndReason!=='walkoff')resetOutsAndBases();saveGameState();showGameResult();return true;
+  if(rulePending())return false;
+  gameEnded=true;gameEndReason=reason||'game-over';if(gameEndReason!=='walkoff'&&(phaseIsRegular()||gameEndReason!=='clinch-tie-during-bottom'))resetOutsAndBases();saveGameState();showGameResult();return true;
 }
 function returnToFinishedGame(){
   closeGameResult();setLastAction('試合終了結果を閉じました');scheduleUpdate();
 }
 function checkWalkoff(){
-  if(gameEnded||Number($('inning').value)<9||half!=='bottom')return false;
+  if(rulePending()||gameEnded||Number($('inning').value)<9||half!=='bottom')return false;
   return teamScore(homeTeam())>teamScore(awayTeam())?finishGame('walkoff'):false;
 }
 nextHalf=function(){
+  if(rejectPendingPlay())return true;
   if(gameEnded){showGameResult();return true}
   const inning=Number($('inning').value),home=homeTeam(),away=awayTeam(),homeScore=teamScore(home),awayScore=teamScore(away);
   if(half==='top'){
@@ -564,12 +619,38 @@ nextHalf=function(){
     setHalf('bottom',true);return false;
   }
   if(inning>=9&&homeScore!==awayScore)return finishGame(homeScore>awayScore?'home-win-after-bottom':'away-win-after-bottom');
-  if(inning>=12)return finishGame('draw-after-12');
+  if(!phaseIsRegular()&&inning>=9)return stopForPendingRules();
+  if(phaseIsRegular()&&inning>=12)return finishGame('draw-after-12');
   $('inning').value=String(inning+1);setHalf('top',true);return false;
 };
+function setNextGameControlsDisabled(disabled){
+  for(const id of ['startNextGame','dockStartNextGame','confirmNextGame']){const button=$(id);if(button){button.disabled=disabled||!phaseIsRegular();button.title=phaseIsRegular()?'':'Postseasonの次の試合は日程接続後に利用可能です'}}
+}
+function beginNextGame(){
+  if(!phaseIsRegular())return false;
+  if(nextGameTransitioning)return false;
+  nextGameTransitioning=true;setNextGameControlsDisabled(true);
+  const confirmDialog=$('nextGameConfirmDialog');if(confirmDialog?.open)confirmDialog.close();
+  startNextGame();
+  const owner=phaseSessions.current,epoch=phaseSessions.epoch;
+  // Unlock belongs to the transition/session, not to a prediction revision.
+  // Editing the new game during these 600ms must not strand the transition.
+  setTimeout(()=>{if(phaseSessions.current!==owner||phaseSessions.epoch!==epoch)return;nextGameTransitioning=false;setNextGameControlsDisabled(false)},600);
+  return true;
+}
+function requestNextGame(){
+  if(!phaseIsRegular())return false;
+  if(nextGameTransitioning)return false;
+  if(gameEnded)return beginNextGame();
+  const dialog=$('nextGameConfirmDialog');if(dialog.open)return false;
+  if(typeof dialog.showModal==='function')dialog.showModal();else dialog.setAttribute('open','');
+  return false;
+}
 function startNextGame(){
+  if(!phaseIsRegular())return false;
+  const owner=phaseSessions.capture();
   const opponent=$('opponent').value,tigersPitcher=$('tigersPitcher').value,oppPitcher=$('oppPitcher').value;
-  closeGameResult();gameEnded=false;gameEndReason='';half='top';$('inning').value='1';$('tigersScore').value='0';$('oppScore').value='0';$('tigersBatterPos').value='0';$('oppBatterPos').value='0';
+  closeGameResult();closeGameDock();gameEnded=false;gameEndReason='';half='top';$('inning').value='1';$('tigersScore').value='0';$('oppScore').value='0';$('tigersBatterPos').value='0';$('oppBatterPos').value='0';
   resetOutsAndBases();pitchLoads={};pitcherUsageRoles={};
   for(let index=0;index<9;index++)$('tLine'+index).value='';
   fillLineup(TEAM_T,'tLine');fillLineup(opponent,'oLine');
@@ -577,6 +658,7 @@ function startNextGame(){
   if([...$('oppPitcher').options].some(option=>option.value===oppPitcher))$('oppPitcher').value=oppPitcher;
   $('topBtn').classList.add('active');$('botBtn').classList.remove('active');refreshRunnerOptions();refreshSubstitutionUI();refreshBatterPosLabels();
   history=[];redoHistory=[];syncHistoryControls();setLastAction('次の試合を開始');scheduleUpdate();
+  if(phaseSessions.current.id!==owner.sessionId)throw new Error('Next Game session changed');
 }
 
 function playNeedsRunnerChoice(play){return ['1B','2B','E','ADV','SF','SAC'].includes(play)&&[1,2,3].some(base=>baseRunners[base])}
@@ -613,7 +695,7 @@ function runnerMovePreview(){
   $('runnerAdvancePreview').textContent=valid?`確定後：${parts.length?parts.join(' / '):'走者なし'}${scored?` / ${scored}得点`:''}`:'走者の行き先が重複しています';$('runnerAdvancePreview').classList.toggle('invalid',!valid);$('confirmRunnerAdvance').disabled=!valid;
 }
 function openRunnerAdvanceDialog(play,matchup){
-  const team=battingTeam($('homeAway').value,half),runners={1:baseRunners[1]||'',2:baseRunners[2]||'',3:baseRunners[3]||''};pendingRunnerPlay={play,matchup,team,runners};$('runnerAdvanceTitle').textContent=`${actionLabel(play)}：走者の行き先`;$('runnerAdvanceLead').textContent=`打者は${batterDestination(play)?`${batterDestination(play)}塁へ`:'アウト'}。各走者の行き先を確認してください。`;
+  const team=battingTeam($('homeAway').value,half),runners={1:baseRunners[1]||'',2:baseRunners[2]||'',3:baseRunners[3]||''};pendingRunnerPlay={play,matchup,team,runners,token:phaseSessions.capture()};$('runnerAdvanceTitle').textContent=`${actionLabel(play)}：走者の行き先`;$('runnerAdvanceLead').textContent=`打者は${batterDestination(play)?`${batterDestination(play)}塁へ`:'アウト'}。各走者の行き先を確認してください。`;
   const rows=$('runnerAdvanceRows');rows.innerHTML='';
   for(const base of [1,2,3]){
     const id=runners[base];if(!id)continue;const row=document.createElement('div');row.className='runnerAdvanceRow';const label=document.createElement('label');label.textContent=`${base}塁 ${runnerLabel(team,id)||'走者'}`;const select=document.createElement('select');select.dataset.runnerFrom=String(base);select.setAttribute('aria-label',`${base}塁走者の行き先`);
@@ -627,10 +709,17 @@ function applyChosenRunnerMoves(play,destinations,runners,batter){
   return {next,scored};
 }
 function confirmRunnerAdvance(){
-  if(!pendingRunnerPlay)return;const destinations=selectedRunnerDestinations();if(!validateRunnerDestinations(pendingRunnerPlay.play,destinations,true))return;
+  if(rejectPendingPlay())return false;
+  if(!pendingRunnerPlay||!phaseSessions.isCurrent(pendingRunnerPlay.token))return;const destinations=selectedRunnerDestinations();if(!validateRunnerDestinations(pendingRunnerPlay.play,destinations,true))return;
   const pending=pendingRunnerPlay;pendingRunnerPlay=null;$('runnerAdvanceDialog').close();commitPlateResult(pending.play,pending.matchup,destinations,pending.team,pending.runners);
 }
-function commitPlateResult(play,matchup=rawMatchupPrediction(),destinations=null,team=battingTeam($('homeAway').value,half),runners=null){
+function observationMatchup(){
+  if(phaseIsRegular())return rawMatchupPrediction();
+  const team=battingTeam($('homeAway').value,half),def=fieldingTeam($('homeAway').value,half);
+  return {team,def,batter:currentBatterFor(team),pitcher:currentPitcherFor(def)};
+}
+function commitPlateResult(play,matchup=observationMatchup(),destinations=null,team=battingTeam($('homeAway').value,half),runners=null){
+  if(rejectPendingPlay())return false;
   pushHistory();recordPlateObservation(play,matchup);const r=runners||{1:baseRunners[1]||'',2:baseRunners[2]||'',3:baseRunners[3]||''};let next={...r},scored=0;const batter=batterRunnerId(team),runnerOutPlay=['OUT','K','ADV','SF','SAC'].includes(play);
   if(play==='OUT'||play==='K')outs=Math.min(3,outs+1);
   else if(play==='DP'){outs=Math.min(3,outs+2);if(r[1])next[1]='';else if(r[2])next[2]='';else if(r[3])next[3]=''}
@@ -647,10 +736,12 @@ function commitPlateResult(play,matchup=rawMatchupPrediction(),destinations=null
   setLastAction(message);closeGameDock();
 }
 applyPlateResult=function(play){
-  const matchup=rawMatchupPrediction();if(playNeedsRunnerChoice(play)){openRunnerAdvanceDialog(play,matchup);return}commitPlateResult(play,matchup);
+  if(rejectPendingPlay())return false;
+  const matchup=observationMatchup();if(playNeedsRunnerChoice(play)){openRunnerAdvanceDialog(play,matchup);return}commitPlateResult(play,matchup);
 };
 
 function advanceRunner(base,steal=false){
+  if(rejectPendingPlay())return false;
   const team=battingTeam($('homeAway').value,half),id=baseRunners[base];if(!id){toast(`${base}塁に走者がいません`);return false}
   const next={1:baseRunners[1]||'',2:baseRunners[2]||'',3:baseRunners[3]||''},name=runnerLabel(team,id)||'走者';pushHistory();
   if(base===3){next[3]='';addRuns(team,1);setRunners(next);checkWalkoff();scheduleUpdate();setLastAction(`${name}が本塁へ進塁`);return true}
@@ -661,13 +752,16 @@ function advanceRunner(base,steal=false){
   next[base]='';next[base+1]=id;setRunners(next);scheduleUpdate();setLastAction(`${name}が${base+1}塁へ進塁`);return true;
 }
 function openSteal(base){
+  if(rejectPendingPlay())return false;
   const team=battingTeam($('homeAway').value,half),id=baseRunners[base];if(!id){toast(`${base}塁に走者がいません`);return}
   if(base<3&&baseRunners[base+1]){toast(`${base+1}塁が埋まっています`);return}
-  stealBase=base;$('stealDialogText').textContent=`${runnerLabel(team,id)||'走者'}：${base}塁からの盗塁結果を選択`;$('stealDialog').showModal();
+  stealBase=base;stealToken=phaseSessions.capture();$('stealDialogText').textContent=`${runnerLabel(team,id)||'走者'}：${base}塁からの盗塁結果を選択`;$('stealDialog').showModal();
 }
 function completeSteal(success){
+  if(rejectPendingPlay())return false;
+  if(!stealToken||!phaseSessions.isCurrent(stealToken))return;
   const base=stealBase,team=battingTeam($('homeAway').value,half),id=baseRunners[base],runner=getPlayerById(team,id,'bat');$('stealDialog').close();if(!id)return;
-  if(success){if(advanceRunner(base,true)){recordSteal(true,runner,team,base);setLastAction(`${runnerLabel(team,id)||'走者'}が盗塁成功`)}}
+  if(success){if(advanceRunner(base,true)){recordSteal(true,runner,team,base);scheduleUpdate();setLastAction(`${runnerLabel(team,id)||'走者'}が盗塁成功`)}}
   else{pushHistory();const next={1:baseRunners[1]||'',2:baseRunners[2]||'',3:baseRunners[3]||''};next[base]='';setRunners(next);outs=Math.min(3,outs+1);recordSteal(false,runner,team,base);if(outs>=3)nextHalf();else{syncOutUI();scheduleUpdate()}setLastAction(`${runnerLabel(team,id)||'走者'}が盗塁死`)}
   stealBase=0;
 }
@@ -696,19 +790,20 @@ updateStatus=function(){
 
 const snapshotV09=snapshot;
 function copiedOpponentLineups(){return Object.fromEntries(Object.entries(savedOpponentLineups||{}).map(([team,lineup])=>[team,Array.isArray(lineup)?[...lineup]:lineup]))}
-snapshot=function(){return {...snapshotV09(),stealLearningLength:observedLearning?.steals?.length||0,opponent:$('opponent').value,homeAway:$('homeAway').value,ballpark:$('ballpark')?.value||'auto',pitchLoads:{...pitchLoads},pitcherUsageRoles:{...pitcherUsageRoles},lastAction,fieldOpen:$('fieldStateDetails').open,gameEnded,gameEndReason,savedOpponentLineups:copiedOpponentLineups()}};
+snapshot=function(){return {...snapshotV09(),stealLearningLength:observedLearning?.steals?.length||0,opponent:$('opponent').value,homeAway:$('homeAway').value,ballpark:$('ballpark')?.value||'auto',pitchLoads:{...pitchLoads},pitcherUsageRoles:{...pitcherUsageRoles},lastAction,fieldOpen:$('fieldStateDetails').open,gameEnded,gameEndReason:phaseIsRegular()?gameEndReason:gameEndReason||null,...(!phaseIsRegular()?{ruleStatus:gameRuleStatus,rulePendingReason:gameRulePendingReason,postseasonHalfStart,...(pendingRuleBoundary?{rulePendingBoundary:pendingRuleBoundary}:{}),...(completionProof?{postseasonCompletionBoundary:completionProof}:{})}:{}),savedOpponentLineups:copiedOpponentLineups()}};
 const restoreSnapshotV09=restoreSnapshot;
 restoreSnapshot=function(state){
+  if(!phaseIsRegular()){gameRuleStatus=state.ruleStatus||'ACTIVE';gameRulePendingReason=state.rulePendingReason||'';pendingRuleBoundary=state.rulePendingBoundary||null;completionProof=state.postseasonCompletionBoundary||null;postseasonHalfStart=state.postseasonHalfStart||null}
   if(state.savedOpponentLineups&&typeof state.savedOpponentLineups==='object'){savedOpponentLineups=Object.fromEntries(Object.entries(state.savedOpponentLineups).map(([team,lineup])=>[team,Array.isArray(lineup)?[...lineup]:lineup]));persistOpponentLineups()}
   if(state.opponent&&state.opponent!==$('opponent').value){$('opponent').value=state.opponent;refreshPlayerUI()}
   if(state.homeAway)$('homeAway').value=state.homeAway;if(state.ballpark&&$('ballpark'))$('ballpark').value=state.ballpark;pitchLoads={...(state.pitchLoads||pitchLoads)};pitcherUsageRoles={...(state.pitcherUsageRoles||pitcherUsageRoles)};gameEnded=Boolean(state.gameEnded);gameEndReason=state.gameEndReason||'';restoreSnapshotV09(state);
-  if(Number.isInteger(state.stealLearningLength)&&observedLearning?.steals?.length>state.stealLearningLength){observedLearning.steals=observedLearning.steals.slice(0,state.stealLearningLength);saveObservedLearning()}
-  if(typeof state.fieldOpen==='boolean')$('fieldStateDetails').open=state.fieldOpen;setLastAction(state.lastAction||'');if(gameEnded)setTimeout(showGameResult,0);else closeGameResult()
+  if(Number.isInteger(state.stealLearningLength)&&observedLearning?.steals?.length>state.stealLearningLength){observedLearning.steals=observedLearning.steals.slice(0,state.stealLearningLength);saveObservedLearning();scheduleUpdate()}
+  if(typeof state.fieldOpen==='boolean')$('fieldStateDetails').open=state.fieldOpen;setLastAction(state.lastAction||'');if(gameEnded)sessionLater(showGameResult,0);else closeGameResult()
 };
 function historyStateKey(state){
   if(!state)return'';const comparable={...state};delete comparable.lastAction;delete comparable.fieldOpen;return JSON.stringify(comparable);
 }
-function syncHistoryControls(){$('undoBtn').disabled=!history.length;$('redoBtn').disabled=!redoHistory.length}
+function syncHistoryControls(){phaseSessions.current.history=history;phaseSessions.current.redoHistory=redoHistory;$('undoBtn').disabled=!history.length;$('redoBtn').disabled=!redoHistory.length}
 function appendHistoryState(state,clearRedo=true){
   if(!state)return;const key=historyStateKey(state);if(!history.length||historyStateKey(history.at(-1))!==key){history.push(state);if(history.length>40)history.shift()}
   if(clearRedo)redoHistory=[];syncHistoryControls();
@@ -733,7 +828,7 @@ undoLast=function(){
 function redoLast(){
   const entry=redoHistory.pop();if(!entry){syncHistoryControls();return}appendHistoryState(snapshot(),false);restoreSnapshot(entry.state);restoreObservationTail(entry.state,entry.tail);setLastAction('取り消した操作をやり直しました');syncHistoryControls();scheduleUpdate();
 }
-function captureControlHistory(control){pendingControlHistory.set(control,snapshot());resumeFinishedGameForEdit()}
+function captureControlHistory(control){if(phaseSessions.hydrating)return;pendingControlHistory.set(control,snapshot());resumeFinishedGameForEdit()}
 function commitControlHistory(control){
   const before=pendingControlHistory.get(control);pendingControlHistory.delete(control);if(before&&historyStateKey(before)!==historyStateKey(snapshot()))appendHistoryState(before,true);
 }
@@ -743,22 +838,29 @@ function setupStatefulControlHistory(){
   for(const id of ['tigersScore','oppScore']){const control=$(id);control.addEventListener('focusin',()=>captureControlHistory(control));control.addEventListener('pointerdown',()=>captureControlHistory(control));control.addEventListener('keydown',()=>captureControlHistory(control));control.addEventListener('change',()=>commitControlHistory(control))}
 }
 function saveGameState(){
-  if(!$('opponent')?.value)return;clearTimeout(autosaveTimer);autosaveTimer=setTimeout(()=>{try{const state=snapshot();delete state.learningLength;delete state.stealLearningLength;localStorage.setItem(GAME_STORAGE,JSON.stringify({version:1,savedAt:Date.now(),state}))}catch(e){}},80);
+  if(!phaseSessions.ready||phaseSessions.hydrating||!$('opponent')?.value)return;
+  const session=phaseSessions.current,state=snapshot();delete state.learningLength;delete state.stealLearningLength;
+  if(!session.gameDirty&&JSON.stringify(state)===JSON.stringify(session.gameState))return;
+  session.dirty=true;phaseSessions.scheduleGameSave({version:1,savedAt:Date.now(),state},80,session);
 }
-function restoreGameState(){
+function restoreGameState(explicitState){
   try{
-    const saved=JSON.parse(localStorage.getItem(GAME_STORAGE)||'null'),state=saved?.state;if(saved?.version!==1||!state)return false;
-    if(state.savedOpponentLineups&&typeof state.savedOpponentLineups==='object'){savedOpponentLineups=Object.fromEntries(Object.entries(state.savedOpponentLineups).map(([team,lineup])=>[team,Array.isArray(lineup)?[...lineup]:lineup]));persistOpponentLineups()}
+    const saved=explicitState?{version:1,state:explicitState}:phaseStorage().read('game'),state=saved?.state;if(saved?.version!==1||!state)return false;
+    if(state.savedOpponentLineups&&typeof state.savedOpponentLineups==='object'){savedOpponentLineups=Object.fromEntries(Object.entries(state.savedOpponentLineups).map(([team,lineup])=>[team,Array.isArray(lineup)?[...lineup]:lineup]))}
     if(state.opponent&&[...$('opponent').options].some(option=>option.value===state.opponent))$('opponent').value=state.opponent;if(state.homeAway)$('homeAway').value=state.homeAway;if(state.ballpark&&$('ballpark'))$('ballpark').value=state.ballpark;refreshPlayerUI();
-    half=state.half==='bottom'?'bottom':'top';outs=clamp(num(state.outs),0,2);balls=clamp(num(state.balls),0,3);strikes=clamp(num(state.strikes),0,2);baseRunners={1:state.baseRunners?.[1]||'',2:state.baseRunners?.[2]||'',3:state.baseRunners?.[3]||''};bases=[1,2,3].reduce((value,base)=>value|(baseRunners[base]?baseBit(base):0),0);
-    $('inning').value=String(clamp(num(state.inning)||1,1,12));$('tigersScore').value=String(Math.max(0,num(state.tigersScore)));$('oppScore').value=String(Math.max(0,num(state.oppScore)));$('tigersBatterPos').value=String(clamp(num(state.tPos),0,8));$('oppBatterPos').value=String(clamp(num(state.oPos),0,8));
-    (state.tLine||[]).forEach((id,index)=>{const select=$(`tLine${index}`);if(select&&[...select.options].some(option=>option.value===id))select.value=id});(state.oLine||[]).forEach((id,index)=>{const select=$(`oLine${index}`);if(select&&[...select.options].some(option=>option.value===id))select.value=id});
-    if([...$('tigersPitcher').options].some(option=>option.value===state.tPitcher))$('tigersPitcher').value=state.tPitcher;if([...$('oppPitcher').options].some(option=>option.value===state.oPitcher))$('oppPitcher').value=state.oPitcher;
-    pitchLoads={...(state.pitchLoads||{})};pitcherUsageRoles={...(state.pitcherUsageRoles||{})};lastAction=state.lastAction||'';gameEnded=Boolean(state.gameEnded);gameEndReason=state.gameEndReason||'';$('fieldStateDetails').open=state.fieldOpen!==false;$('topBtn').classList.toggle('active',half==='top');$('botBtn').classList.toggle('active',half==='bottom');refreshRunnerOptions();refreshSubstitutionUI();syncOutUI();syncCountUI();syncBaseUI();refreshBatterPosLabels();setLastAction(lastAction);if(gameEnded)setTimeout(showGameResult,0);return true;
+    half=state.half==='bottom'?'bottom':'top';outs=clamp(num(state.outs),0,phaseIsRegular()?2:3);balls=clamp(num(state.balls),0,3);strikes=clamp(num(state.strikes),0,2);baseRunners={1:state.baseRunners?.[1]||'',2:state.baseRunners?.[2]||'',3:state.baseRunners?.[3]||''};bases=[1,2,3].reduce((value,base)=>value|(baseRunners[base]?baseBit(base):0),0);
+    if(!phaseIsRegular())ensurePostseasonInningOption(Number(state.inning));
+    $('inning').value=String(phaseIsRegular()?clamp(num(state.inning)||1,1,12):Math.max(1,num(state.inning)||1));$('tigersScore').value=String(Math.max(0,num(state.tigersScore)));$('oppScore').value=String(Math.max(0,num(state.oppScore)));$('tigersBatterPos').value=String(clamp(num(state.tPos),0,8));$('oppBatterPos').value=String(clamp(num(state.oPos),0,8));
+    (state.tLine||[]).forEach((id,index)=>restoreSelection($(`tLine${index}`),id));(state.oLine||[]).forEach((id,index)=>restoreSelection($(`oLine${index}`),id));
+    restoreSelection($('tigersPitcher'),state.tPitcher);restoreSelection($('oppPitcher'),state.oPitcher);
+    gameRuleStatus=phaseIsRegular()?'ACTIVE':state.ruleStatus||(outs===3&&half==='bottom'&&Number(state.inning)>=9&&!state.gameEnded?'RULE_PENDING':'ACTIVE');gameRulePendingReason=gameRuleStatus==='RULE_PENDING'?(state.rulePendingReason||'POSTSEASON_CONTINUATION_UNCONNECTED'):'';
+    pendingRuleBoundary=phaseIsRegular()?null:state.rulePendingBoundary||null;completionProof=phaseIsRegular()?null:state.postseasonCompletionBoundary||null;
+    postseasonHalfStart=phaseIsRegular()?null:state.postseasonHalfStart||null;
+    pitchLoads={...(state.pitchLoads||{})};pitcherUsageRoles={...(state.pitcherUsageRoles||{})};lastAction=state.lastAction||'';gameEnded=Boolean(state.gameEnded);gameEndReason=state.gameEndReason||'';$('fieldStateDetails').open=state.fieldOpen!==false;$('topBtn').classList.toggle('active',half==='top');$('botBtn').classList.toggle('active',half==='bottom');refreshRunnerOptions();refreshSubstitutionUI();syncOutUI();syncCountUI();syncBaseUI();refreshBatterPosLabels();setLastAction(lastAction);if(gameEnded&&(!explicitState||!phaseSessions.hydrating))sessionLater(showGameResult,0);return true;
   }catch(e){return false}
 }
 const scheduleUpdateV09=scheduleUpdate;
-scheduleUpdate=function(){scheduleUpdateV09();updateFieldState();saveGameState()};
+scheduleUpdate=function(){phaseSessions.touch();updateFieldState();saveGameState();scheduleUpdateV09()};
 
 const applyPinchHitterV09=applyPinchHitter;
 applyPinchHitter=function(){const before=$('substitutionStatus').textContent;applyPinchHitterV09();if($('substitutionStatus').textContent!==before){setLastAction($('substitutionStatus').textContent);closeGameDock()}};
@@ -775,7 +877,11 @@ document.querySelectorAll('[data-advance-runner]').forEach(button=>button.onclic
 document.querySelectorAll('[data-steal-runner]').forEach(button=>button.onclick=()=>openSteal(Number(button.dataset.stealRunner)));
 $('pitcherFatigue').addEventListener('change',event=>{const team=currentFieldingTeam(),player=currentPitcherFor(team);pitchLoads[pitcherKey(team,player)]=Number(event.target.value);setLastAction(`${displayName(player)||TEAM_NAME[team]+'投手平均'}の投球数を${event.target.selectedOptions[0].textContent}に変更`);scheduleUpdate();closeGameDock()});
 $('ballpark')?.addEventListener('change',()=>{const park=currentParkInfo();setLastAction(`球場を${park.name}に変更`);scheduleUpdate();closeGameDock()});
-$('fieldStateDetails').addEventListener('toggle',saveGameState);
+$('fieldStateDetails').addEventListener('toggle',()=>{
+  // Hydration can enqueue a native toggle after withHydration has returned.
+  // Its rendered value is already captured; only a new user change needs saving.
+  if(!phaseSessions.hydrating&&$('fieldStateDetails').open!==phaseSessions.current.gameState?.fieldOpen){phaseSessions.touch();saveGameState()}
+});
 for(const id of ['tigersPitcher','oppPitcher'])$(id).addEventListener('change',()=>{const team=id==='tigersPitcher'?TEAM_T:$('opponent').value,player=currentPitcherFor(team),key=pitcherKey(team,player);if(pitchLoads[key]===undefined)pitchLoads[key]=0;updateFieldState();setLastAction(`${TEAM_NAME[team]}の投手を${displayName(player)||'投手平均'}に変更`)});
 for(const base of [1,2,3])$('runner'+base).addEventListener('change',()=>setLastAction(`${base}塁走者を${runnerLabel(battingTeam($('homeAway').value,half),baseRunners[base])||'なし'}に変更`));
 document.querySelectorAll('.outBtn').forEach(button=>button.addEventListener('click',()=>setLastAction(`アウトを${outs}に変更`)));
@@ -792,9 +898,456 @@ setupStatefulControlHistory();
 ['tigersScore','oppScore'].forEach(id=>$(id).addEventListener('change',()=>{if(checkWalkoff())setLastAction('サヨナラで試合終了')}));
 $('nextHalf').addEventListener('click',()=>{if(gameEnded)setLastAction('試合終了')});
 document.addEventListener('click',event=>{const button=event.target.closest('button');if(!button)return;button.classList.remove('pressedFeedback');void button.offsetWidth;button.classList.add('pressedFeedback');setTimeout(()=>button.classList.remove('pressedFeedback'),240)});
-window.addEventListener('pagehide',()=>{try{const state=snapshot();delete state.learningLength;delete state.stealLearningLength;localStorage.setItem(GAME_STORAGE,JSON.stringify({version:1,savedAt:Date.now(),state}))}catch(e){}});
+window.addEventListener('pagehide',()=>{if(phaseSessions.current.gameDirty)saveGameState();phaseSessions.flushAll()});
 
 const footer=document.querySelector('footer');if(footer){const note=document.createElement('div');note.className='rosterSourceNote';note.innerHTML=`公式個人成績：<a href="https://npb.jp/bis/2026/stats/" target="_blank" rel="noopener noreferrer">NPB.jp 2026個人成績</a>（${statsSnapshot.snapshotDate?.replaceAll('-','/')}時点）の静的スナップショット。通常更新は前回基準日以降の<a href="https://npb.jp/bis/2026/games/" target="_blank" rel="noopener noreferrer">公式試合結果</a>だけを試合ID単位で追加し、ページ表示時の外部通信は行いません。<br>現役支配下選手名：<a href="https://npb.jp/bis/players/active/index.html" target="_blank" rel="noopener noreferrer">NPB.jp 現役選手一覧</a>。未収録の個人成績は同球団平均を使用。<br>左右補正：NPB公式の投打情報と<a href="https://www.mlb.com/news/takeaways-from-first-half-of-2026-season" target="_blank" rel="noopener noreferrer">MLB公式の2025左右別wOBA公開集計</a>を50%に縮約。球場補正：2024年以降のNPB公式試合結果を180試合分リーグ平均へ縮約し最大±3%。<br>投手疲労補正：<a href="https://www.mlb.com/glossary/standard-stats/number-of-pitches" target="_blank" rel="noopener noreferrer">MLB Pitch Count</a>、<a href="https://www.mlb.com/glossary/miscellaneous/third-time-through-the-order-penalty" target="_blank" rel="noopener noreferrer">Third Time Through the Order Penalty</a>を基にした保守的な役割別段階補正。`;footer.appendChild(note)}
 
-refreshPlayerUI();decorateSearchSelects();decorateLineupReordering();updateStatus();restoreGameState();updateLearningUI();updateFieldState();update();
+// Pure Regular prediction functions keep their existing math; unbound Postseason fails closed.
+for(const name of ['simulateWin','simulateInningMetrics','currentMatchupPrediction']){
+  const regularFunction=({simulateWin,simulateInningMetrics,currentMatchupPrediction})[name];
+  const guarded=function(context=predictionContext()){
+    if(TigersPhase.contextKey(context.phaseContext)!==TigersPhase.contextKey(phaseSessions.current.context))throw new Error('Prediction context is not connected to the active session');
+    if(!phaseIsRegular()&&(context.sessionToken&&!phaseSessions.isCurrent(context.sessionToken)||context.prior!==phaseSessions.current.postseasonLayer?.prior||context.dataset!==phaseSessions.current.postseasonLayer?.dataset))throw new Error('Stale Postseason prediction context');
+    if(!phaseIsRegular()&&(!phaseSessions.current.postseasonLayer||name==='simulateWin'))throw new Error('Postseason prior or full-game termination rules are not connected');
+    return regularFunction();
+  };
+  if(name==='simulateWin')simulateWin=guarded;
+  else if(name==='simulateInningMetrics')simulateInningMetrics=guarded;
+  else currentMatchupPrediction=guarded;
+}
+// Shared game presentation. The original Regular renderer and calculation math stay intact.
+const regularGameUpdate=update,regularPlayerLabel=playerOptionLabel;
+playerOptionLabel=function(player,type){return phaseIsRegular()?regularPlayerLabel(player,type):displayName(player)};
+const gamePhaseNotice=document.createElement('p');gamePhaseNotice.id='gamePhaseNotice';gamePhaseNotice.className='gamePhaseNotice';gamePhaseNotice.setAttribute('role','status');gamePhaseNotice.hidden=true;
+$('gameProbabilityView').prepend(gamePhaseNotice);
+const regularDataCard=$('dataStatus').closest('section'),regularLogicCard=regularDataCard.nextElementSibling,regularFooter=$('gameProbabilityView').querySelector('footer');
+for(const element of [regularDataCard,regularLogicCard,regularFooter])element.dataset.regularOnly='';
+function syncPhasePresentation(){
+  if(phaseIsRegular())for(const option of [...$('inning').options])if(Number(option.value)>12)option.remove();
+  const post=!phaseIsRegular(),layer=phaseSessions.current.postseasonLayer,test=layer?.purpose==='TEST',stopped=rulePending();
+  for(const control of document.querySelectorAll('.playBtn,[data-steal-runner],[data-advance-runner],.outBtn'))control.disabled=stopped;
+  for(const id of ['inning','topBtn','botBtn','nextHalf'])$(id).disabled=stopped;
+  gamePhaseNotice.hidden=!post;renderBindingStatus();
+  gamePhaseNotice.textContent=stopped?'大会別延長・継続条件の接続待ちです。打席・盗塁入力と正式な試合終了判定を停止しています。':post?(test?'TEST priorで接続検証中です。本番の予測ではありません。':layer?'固定したRegular最終データを基盤に予測します。':'次打席予測は最終データ確定後に利用可能です。')+' 勝利確率は大会別終了条件の接続後に、次の試合は日程接続後に利用可能です。':'';
+  for(const element of [regularDataCard,regularLogicCard,regularFooter]){element.hidden=post;element.inert=post}
+  for(const id of ['importBatBtn','importPitBtn','importDataBtn','exportDataBtn'])$(id).disabled=post;
+  for(const button of document.querySelectorAll('#probDock button'))button.disabled=post&&(stopped||button.dataset.detail==='win'||!layer);
+  setNextGameControlsDisabled(nextGameTransitioning);
+  if(post){$('modelBadge').textContent=test?'Postseason TEST予測':layer?'Postseason固定prior':'Postseason予測準備中';$('modelBadge').className='badge'}
+}
+function renderPostseasonGame(){
+  clearPhasePrediction();lastCalculationDetail=null;syncPhasePresentation();
+  const team=battingTeam($('homeAway').value,half),opponent=$('opponent').value,layer=phaseSessions.current.postseasonLayer;
+  $('attackLabel').textContent=`攻撃側：${TEAM_NAME[team]}`;
+  $('statusText').textContent=`${$('inning').value}回${half==='top'?'表':'裏'}・${TEAM_NAME[team]}の攻撃｜阪神 ${num($('tigersScore').value)} − ${num($('oppScore').value)} ${TEAM_NAME[opponent]}｜${outs}アウト・B${balls}-S${strikes}`;
+  $('winModelLabel').textContent='勝利確率は大会別終了条件の接続後に利用可能';
+  for(const id of ['predictionNote','runNote','runModelLabel'])$(id).textContent='最終データ確定後に利用可能';
+  if(!layer||rulePending())return;
+  const context=predictionContext();
+  // Only the validated, explicitly connected context can enter the existing core.
+  try{
+    const metrics=simulateInningMetrics(context);updatePrediction();
+    if(!lastPrediction||![metrics?.prob,metrics?.exp].every(Number.isFinite))throw new Error('Prediction unavailable');
+    const test=layer.purpose==='TEST',label=test?'Postseason TEST':'Postseason固定prior';
+    $('predictionNote').textContent=label+'＋Postseason観戦入力。左右・球場・疲労・カウントを反映。';
+    $('runModelLabel').textContent=label+'打席モデル';$('runNote').textContent='固定priorとPostseason観戦入力から、この半回を計算。';
+    $('runProb').textContent=metrics.prob.toFixed(1)+'%';$('runExp').textContent=metrics.exp.toFixed(2)+' 点';
+    const top=lastPrediction.rows.slice().sort((a,b)=>b[1]-a[1])[0];
+    $('dockRunProb').textContent=metrics.prob.toFixed(1)+'%';$('dockRunExp').textContent=metrics.exp.toFixed(2);$('dockPA').textContent=top?`${top[0]} ${pctText(top[1])}`:'--';
+    lastSummary={prob:metrics.prob,exp:metrics.exp,win:null,top};
+  }catch(error){clearPhasePrediction();lastCalculationDetail=null;$('predictionNote').textContent='予測データを確認できません。';}
+}
+update=function(){if(phaseIsRegular()){syncPhasePresentation();regularGameUpdate()}else renderPostseasonGame()};
+const regularProbabilityDetail=openProbabilityDetail;
+openProbabilityDetail=function(kind){
+  const layer=phaseSessions.current.postseasonLayer;
+  if(!phaseIsRegular()&&(kind==='win'||!layer))return;
+  regularProbabilityDetail(kind);
+  if(!phaseIsRegular()&&$('probDialog').open){
+    if(layer.purpose==='TEST')$('dialogLabel').textContent='TEST｜'+$('dialogLabel').textContent;
+    const source=$('probDialog').querySelector('.calculationSource');
+    if(source)source.textContent=(layer.purpose==='TEST'?'TEST固定prior（本番データではありません）':'Regular最終公式データの固定prior')+'：'+layer.prior.source_baseline_date+'。Postseason観戦入力を追加反映。';
+  }
+};
+const regularBaselineLabel=currentBaselineLabel;
+currentBaselineLabel=function(){const layer=phaseSessions.current.postseasonLayer;return phaseIsRegular()?regularBaselineLabel():layer?(layer.purpose==='TEST'?'Postseason TEST prior':'Postseason固定prior'):'最終データ確定後に予測可能'};
+function restoreSelection(select,id){
+  if(!select||typeof id!=='string')return;
+  if(!phaseIsRegular()&&id&&![...select.options].some(option=>option.value===id)){
+    const option=document.createElement('option');option.value=id;option.textContent='未収録の選手';select.appendChild(option);
+  }
+  if([...select.options].some(option=>option.value===id))select.value=id;
+}
+const regularRunnerOptions=refreshRunnerOptions;
+refreshRunnerOptions=function(){
+  if(phaseIsRegular())return regularRunnerOptions();
+  const runners={...baseRunners};regularRunnerOptions();
+  for(const base of [1,2,3])if(runners[base]){restoreSelection($('runner'+base),runners[base]);baseRunners[base]=runners[base]}
+};
+// Internal activation boundary used by both navigation and explicit test connections.
+function captureSessionMemory(){
+  const session=phaseSessions.current;
+  session.gameState=snapshot();delete session.gameState.learningLength;delete session.gameState.stealLearningLength;
+  session.lineup={tLine:[...session.gameState.tLine],oLine:[...session.gameState.oLine]};
+  session.pitchers={tPitcher:session.gameState.tPitcher,oPitcher:session.gameState.oPitcher};
+  session.opponentLineups=copiedOpponentLineups();session.learning=JSON.parse(JSON.stringify(observedLearning));
+  session.history=history;session.redoHistory=redoHistory;
+  session.memory={stats,model,lastPrediction,lastSummary,lastCalculationDetail,learningGameDate:$('learningGameDate').value};
+}
+function clearPendingSessionControls(){
+  pendingRunnerPlay=null;stealBase=0;stealToken=null;searchTarget=null;searchToken=null;
+  pendingControlHistory=new WeakMap();dockControlHistory=new WeakMap();
+  nextGameTransitioning=false;setNextGameControlsDisabled(false);closeGameDock();
+  for(const id of ['pinchHitter','pinchRunner','reliefPitcher','batFile','pitFile','jsonFile','learningFile'])if($(id))$(id).value='';
+  $('pinchRunnerBase').value='1';setSubstitutionStatus('');
+  for(const id of ['runnerAdvanceDialog','stealDialog','playerSearchDialog','gameResultDialog','nextGameConfirmDialog','probDialog','whatIfStartDialog']){const dialog=$(id);if(dialog?.open)dialog.close()}
+  clearTimeout($('toast')._t);$('toast').style.display='none';
+}
+function emptyPostseasonGame(){
+  return {half:'top',outs:0,balls:0,strikes:0,bases:0,baseRunners:{1:'',2:'',3:''},inning:'1',tigersScore:'0',oppScore:'0',tPos:'0',oPos:'0',
+    tLine:Array(9).fill(AVG_LINEUP_ID),oLine:Array(9).fill(AVG_LINEUP_ID),tPitcher:AVG_PITCHER_ID,oPitcher:AVG_PITCHER_ID,
+    opponent:'Giants',homeAway:'home',ballpark:'auto',pitchLoads:{},pitcherUsageRoles:{},lastAction:'',fieldOpen:true,gameEnded:false,gameEndReason:'',savedOpponentLineups:{},ruleStatus:'ACTIVE',rulePendingReason:''};
+}
+// Rollback keeps the original nodes/listeners and restores controls without input/change.
+function captureGameDOM(){
+  const focus=document.activeElement;
+  const nodes=[document.body,...document.body.querySelectorAll('*')].filter(node=>node.tagName!=='SCRIPT').map(node=>({node,children:[...node.childNodes],attrs:[...node.attributes].map(a=>[a.name,a.value]),texts:[...node.childNodes].filter(child=>child.nodeType===3).map(child=>[child,child.data]),value:'value' in node?node.value:undefined,files:node.type==='file'?[...node.files]:null,checked:node.checked,modal:node.tagName==='DIALOG'&&node.matches(':modal')}));
+  return ()=>{
+    for(const entry of nodes){const {node,children,attrs}=entry;
+      if(node.childNodes.length!==children.length||children.some((child,i)=>node.childNodes[i]!==child))node.replaceChildren(...children);
+      for(const attr of [...node.attributes])if(!attrs.some(([name])=>name===attr.name))node.removeAttribute(attr.name);
+      for(const [name,value]of attrs)if(node.getAttribute(name)!==value)node.setAttribute(name,value);
+      for(const [text,value]of entry.texts)text.data=value;
+      if(entry.files){if(entry.files.length){const transfer=new DataTransfer();for(const file of entry.files)transfer.items.add(file);node.files=transfer.files}else node.value=''}
+      else if(entry.value!==undefined)node.value=entry.value;
+      if(entry.checked!==undefined)node.checked=entry.checked;
+    }
+    for(const {node,modal}of nodes)if(modal&&!node.matches(':modal')){node.removeAttribute('open');node.showModal()}
+    if(focus?.isConnected)focus.focus({preventScroll:true});
+  };
+}
+function normalizeLegacyPostseasonState(state,context){
+  if(!state||context.phase!=='POSTSEASON'||Object.hasOwn(state,'ruleStatus'))return state;
+  // Resolve the old saved boundary before empty-game defaults can supply ACTIVE.
+  const pending=Number(state.outs)===3&&state.half==='bottom'&&Number(state.inning)>=9&&!state.gameEnded&&Number(state.tigersScore)===Number(state.oppScore);
+  return {...state,ruleStatus:pending?'RULE_PENDING':'ACTIVE',rulePendingReason:pending?'POSTSEASON_CONTINUATION_UNCONNECTED':''};
+}
+function prepareIncomingGame(session){
+  TigersPhase.validateGameSessionData(session,session.context);
+  const state={...emptyPostseasonGame(),...normalizeLegacyPostseasonState(session.gameState,session.context)};
+  if(session.context.phase==='REGULAR'){delete state.ruleStatus;delete state.rulePendingReason}
+  if(session.lineup){state.tLine=[...session.lineup.tLine];state.oLine=[...session.lineup.oLine]}
+  if(![...$('opponent').options].some(x=>x.value===state.opponent)||session.context.phase==='REGULAR'&&![...$('inning').options].some(x=>x.value===String(state.inning)))throw new Error('Saved game cannot be hydrated by the shared controls');
+  return state;
+}
+phaseSessions.captureGameState=function(session){
+  if(session!==this.current)return session.gameState;
+  const state=snapshot();delete state.learningLength;delete state.stealLearningLength;return state;
+};
+phaseSessions.activatePhase=function(context,{deferCommit=false}={}){
+  context=TigersPhase.createPhaseContext(context);
+  if(context.season!==SEASON)throw new Error('Activation supports only the current season');
+  if(TigersPhase.contextKey(context)===TigersPhase.contextKey(this.active.context))return this.active;
+  if(this.stagingSession)throw new Error('Phase activation already in progress');
+  const incoming=this.getSession(context);
+  let state;try{state=prepareIncomingGame(incoming)}catch(error){error.navigationMessage='保存データを確認できないためmodeを切り替えませんでした。';throw error}
+  for(const guard of this.switchGuards)if(!guard(context))throw new Error('Finish the active Regular What-if operation before switching phase');
+  if(nextGameTransitioning)throw new Error('Wait for the next-game transition');
+  const outgoing=this.active;saveGameState();
+  if(outgoing.dirty&&!this.flush(outgoing))throw Object.assign(new Error('Outgoing save failed'),{navigationMessage:'保存が完了してからmodeを切り替えてください。'});
+  captureSessionMemory();
+  const epoch=this.epoch,restoreDOM=captureGameDOM(),incomingBefore={...incoming};
+  const previous={half,outs,balls,strikes,bases,baseRunners,stats,model,observedLearning,learningIndex,savedOpponentLineups,history,redoHistory,lastPrediction,lastSummary,lastCalculationDetail,pitchLoads,pitcherUsageRoles,lastAction,gameEnded,gameEndReason,gameRuleStatus,gameRulePendingReason,pendingRuleBoundary,completionProof,postseasonHalfStart,pendingRunnerPlay,stealBase,stealToken,searchTarget,searchToken,pendingControlHistory,dockControlHistory,openDockPanel,nextGameTransitioning};
+  let done=false;
+  const rollback=()=>{
+    if(done)return;this.stagingSession=null;this.active=outgoing;this.epoch=epoch;
+    for(const name of ['gameState','lineup','pitchers','opponentLineups','learning','history','redoHistory','memory','postseasonLayer','postseasonLearningRevision'])incoming[name]=incomingBefore[name];
+    this.withHydration(()=>{
+      ({half,outs,balls,strikes,bases,baseRunners,stats,model,observedLearning,learningIndex,savedOpponentLineups,history,redoHistory,lastPrediction,lastSummary,lastCalculationDetail,pitchLoads,pitcherUsageRoles,lastAction,gameEnded,gameEndReason,gameRuleStatus,gameRulePendingReason,pendingRuleBoundary,completionProof,postseasonHalfStart,pendingRunnerPlay,stealBase,stealToken,searchTarget,searchToken,pendingControlHistory,dockControlHistory,openDockPanel,nextGameTransitioning}=previous);
+      restoreDOM();
+    });done=true;
+  };
+  this.stagingSession=incoming;
+  try{this.withHydration(()=>{
+    stats=incoming.memory?.stats||null;model=incoming.memory?.model||null;
+    if(phaseIsRegular()&&!incoming.memory)loadStats();
+    observedLearning=incoming.learning?JSON.parse(JSON.stringify(incoming.learning)):blankObservedLearning();
+    $('learningGameDate').value=incoming.memory?.learningGameDate||localDateValue();
+    savedOpponentLineups=JSON.parse(JSON.stringify(incoming.opponentLineups||{}));
+    history=incoming.history;redoHistory=incoming.redoHistory;
+    lastPrediction=null;lastSummary=null;lastCalculationDetail=null;
+    if(!restoreGameState(state))throw new Error('Incoming game hydration failed');
+    ensureObservationShape();rebuildLearningIndex();updateLearningUI();updateFieldState();syncHistoryControls();if(phaseIsRegular())updateStatus();update();captureSessionMemory();
+  })}catch(error){rollback();throw error}
+  const transaction={rollback,commit:()=>{
+    if(done)return;try{this.withHydration(()=>{clearTimeout(calcTimer);clearPendingSessionControls();captureSessionMemory()});this.active=incoming;this.stagingSession=null;this.epoch=epoch+1;done=true}catch(error){rollback();throw error}
+  }};
+  if(deferCommit)return transaction;
+  transaction.commit();return incoming;
+};
+phaseSessions.getPredictionContext=predictionContext;
+phaseSessions.isNextGameTransitioning=()=>nextGameTransitioning;
+phaseSessions.parkGameUI=function(){
+  saveGameState();if(this.active.dirty&&!this.flush())throw new Error('Game save failed');captureSessionMemory();
+  this.epoch++;this.withHydration(()=>{clearTimeout(calcTimer);clearPendingSessionControls()});
+};
+phaseSessions.renderActiveGame=function(){this.withHydration(()=>{update();syncHistoryControls()})};
+phaseSessions.connectPostseasonPrediction=async function({prior,officialPostseasonData=null,purpose='PRODUCTION'}){
+  if(phaseIsRegular())throw new Error('Activate an explicit Postseason session first');
+  if(purpose==='TEST'&&!testRuntimeEnabled)throw new Error('TEST prediction requires an explicitly enabled boot-time test harness');
+  const token=this.capture(),session=this.active;
+  const context=TigersPhase.createPredictionContext({phaseContext:session.context,prior,officialPostseasonData,learning:observedLearning,purpose});
+  let layer;try{layer=await TigersPostseason.createDataLayer(context)}catch(error){if(!this.isCurrent(token))return false;throw error}
+  if(!this.isCurrent(token))return false;
+  if(session.dirty&&!this.flush(session))throw new Error('Pending game save must succeed before connecting prediction data');
+  const state=snapshot();delete state.learningLength;delete state.stealLearningLength;
+  session.revision++;session.postseasonLayer=layer;session.postseasonLearningRevision=session.revision;
+  stats=layer.dataset;model=layer.model;
+  this.withHydration(()=>{restoreGameState(state);rebuildLearningIndex();updateLearningUI();update();captureSessionMemory()});
+  return true;
+};
+phaseSessions.injectPostseasonOfficialData=function(officialPostseasonData){
+  const layer=this.active.postseasonLayer;if(phaseIsRegular()||!layer)throw new Error('A connected Postseason prior is required');
+  return this.connectPostseasonPrediction({prior:layer.prior,officialPostseasonData,purpose:layer.purpose});
+};
+phaseSessions.loadProductionPostseasonPrior=async function(){
+  if(phaseIsRegular()||testRuntimeEnabled)return false;
+  const token=this.capture(),module=await import('./postseason-final-prior.mjs');
+  const prior=await module.loadProductionFinalPrior({priorAPI:TigersPostseason});
+  if(!this.isCurrent(token)||!prior)return false;
+  if(this.current.postseasonLayer?.prior.prior_id===prior.prior_id)return true;
+  return this.connectPostseasonPrediction({prior,purpose:'PRODUCTION'});
+};
+phaseSessions.getPostseasonDisplayStats=function(){if(phaseIsRegular()||!this.active.postseasonLayer)throw new Error('Postseason data is not connected');return this.active.postseasonLayer.displayStats};
+phaseSessions.getWinProbabilityInputs=function(){
+  if(phaseIsRegular()||!this.active.postseasonLayer)throw new Error('Postseason data is not connected');
+  return {phaseContext:this.active.context,model:JSON.parse(JSON.stringify(model)),prior_id:this.active.postseasonLayer.prior.prior_id,terminationRulesConnected:false};
+};
+phaseSessions.testPriorRepository=function(){return new TigersPostseason.TestPriorRepository({phaseContext:this.active.context,storage:localStorage})};
+// Stage 4B-3: identity and termination rules are explicitly bound; no inferred schedule.
+let completionConnection=null,completionGeneration=0,completionSetup=0,completionOutcome=null;
+function pinCompletionJSON(value){
+  const pinned=structuredClone(value);
+  const freeze=value=>{if(value&&typeof value==='object'){Object.values(value).forEach(freeze);Object.freeze(value)}return value};
+  return freeze(pinned);
+}
+function completionState(){return {...snapshot(),homeScore:teamScore(homeTeam()),awayScore:teamScore(awayTeam()),completionBoundary:completionProof}}
+function completionCurrent(connection,token){return Boolean(connection)&&completionConnection===connection&&!completionSetup&&!phaseSessions.stagingSession&&phaseSessions.isCurrent(token)&&phaseSessions.current.postseasonBinding===connection.binding&&homeTeam()===connection.binding.homeTeamId&&awayTeam()===connection.binding.awayTeamId}
+phaseSessions.connectPostseasonCompletion=async function({series,binding,snapshotInput=null,snapshotOptions={},startGame=false}){
+  if(phaseIsRegular())throw new Error('Explicit Postseason game activation required');
+  // Pin caller data, capability references, boot authorization and storage before the first await.
+  const pinnedSeries=pinCompletionJSON(series),pinnedBinding=pinCompletionJSON(binding),authorizedTest=testRuntimeEnabled;
+  const options=Object.freeze({prior:snapshotOptions.prior==null?null:pinCompletionJSON(snapshotOptions.prior),priorAPI:snapshotOptions.priorAPI==null?null:Object.freeze({...snapshotOptions.priorAPI})});
+  const probabilityInput=snapshotInput,storageOwner=localStorage,session=this.current;
+  if(pinnedSeries.purpose==='TEST'&&!authorizedTest)throw new Error('TEST completion requires boot-time test harness');
+  // Reject an already stale tab before its pending Game save can overwrite newer binding metadata.
+  session.assertPostseasonBindingBaseline();
+  if(session.dirty&&!this.flush(session))throw new Error('Pending Game save must succeed before binding');
+  const token=this.capture(),gameBytes=session.storage.getItem('game');
+  const previousRecord=session.assertPostseasonBindingBaseline(gameBytes);
+  const request=++completionGeneration;completionSetup=request;
+  const current=()=>this.isCurrent(token)&&request===completionGeneration&&!this.stagingSession;
+  try{
+    const [completion,storage,bindings]=await Promise.all([import('./completed-postseason-game.mjs'),import('./cs-series-store.mjs'),import('./postseason-game-binding.mjs')]);
+    if(!current())return false;
+    const modern=Object.hasOwn(pinnedBinding,'official_game_id')||Object.hasOwn(pinnedBinding,'binding_status');
+    const candidate=modern?pinnedBinding:bindings.upgradeExplicitCompletionBinding(pinnedBinding,pinnedSeries);
+    const checked=await bindings.createPostseasonGameBinding({binding:candidate,series:pinnedSeries,testAuthorized:authorizedTest});
+    const prepared=await bindings.prepareBindingRecord(previousRecord,checked);
+    if(!current())return false;
+    const sameGame=bindings.gameIdentity(previousRecord?.active||{})===bindings.gameIdentity(checked),newGame=startGame&&!sameGame;
+    const commitState=newGame?{...emptyPostseasonGame(),opponent:checked.homeTeamId==='Tigers'?checked.awayTeamId:checked.homeTeamId,homeAway:checked.homeTeamId==='Tigers'?'home':'away',gameEndReason:null}:this.captureGameState(session);
+    if(!sameGame)delete commitState.postseasonCompletionBoundary;
+    if(startGame&&!newGame&&(commitState.opponent!==(checked.homeTeamId==='Tigers'?checked.awayTeamId:checked.homeTeamId)||commitState.homeAway!==(checked.homeTeamId==='Tigers'?'home':'away')))throw new Error('Saved Game opponents do not match binding');
+    const opponentsMatch=()=>newGame||homeTeam()===checked.homeTeamId&&awayTeam()===checked.awayTeamId;
+    if(!opponentsMatch())throw new Error('Game UI opponents do not match completion identity');
+    const repository=new storage.PostseasonSeriesRepository({phaseContext:token.context,storage:storageOwner,purpose:pinnedSeries.purpose});
+    const storageKey=repository.key(pinnedSeries.context.series_id),storedBytes=storageOwner.getItem(storageKey);
+    const saved=await repository.load(pinnedSeries.context.series_id,options);
+    if(!current())return false;
+    if(!saved&&pinnedSeries.series_revision!==0)throw new Error('Bind the latest persisted Series revision; record is missing');
+    if(saved&&completion.seriesRecordKey(saved.series)!==completion.seriesRecordKey(pinnedSeries))throw new Error('Bind the latest persisted Series revision');
+    if(prepared.noOp&&session.postseasonBinding&&completionConnection?.binding===session.postseasonBinding){
+      if(completion.seriesRecordKey(completionConnection.coordinator?.series||completionConnection.series)!==completion.seriesRecordKey(pinnedSeries))throw new Error('Idempotent binding requires latest connected Series');
+      if(!opponentsMatch()||session.storage.getItem('game')!==gameBytes||storageOwner.getItem(storageKey)!==storedBytes)throw new Error('Storage or Game identity changed during binding');
+      enqueuePostseasonCompletion();return true;
+    }
+    const view=window.TigersModeUI.seriesView||await window.TigersModeUI.whenSeriesReady();
+    if(!current())return false;
+    if(!view||view.purpose!==pinnedSeries.purpose||view.phaseContext.season!==token.context.season||view.phaseContext.phase!==token.context.phase)throw new Error('Series view owner mismatch');
+    const teamNames=Object.freeze(Object.fromEntries([pinnedSeries.context.higherTeamId,pinnedSeries.context.lowerTeamId].map(id=>[id,dockShortTeam(id)])));
+    let connection;
+    const refresh=()=>{
+      if(completionConnection!==connection)return;
+      view.prepareCompletionUpdate({series:connection.coordinator.series,snapshot:connection.coordinator.snapshot,teamNames}).commit({durable:true});
+    };
+    connection={binding:checked,completion,coordinator:null,series:pinnedSeries,refresh};
+    if(checked.schedule_status==='SCHEDULED')connection.coordinator=new completion.PostseasonCompletionCoordinator({series:pinnedSeries,repository,binding:checked,initialSnapshot:saved?.snapshot||null,
+      isCurrent:token=>completionCurrent(connection,token),snapshotInput:probabilityInput,snapshotOptions:options,onChange:()=>{try{refresh()}catch{/* Durable completion remains registered. */}}});
+    await connection.coordinator?.recalculateProbability();
+    if(!current()||!opponentsMatch())return false;
+    // Repository load and probability preparation can yield; recheck the storage baseline too.
+    const latest=await repository.load(pinnedSeries.context.series_id,options);
+    if(!current()||!opponentsMatch())return false;
+    if(completion.seriesRecordKey(latest?.series||pinnedSeries)!==completion.seriesRecordKey(pinnedSeries))throw new Error('Bind the latest persisted Series revision');
+    if(storageOwner.getItem(storageKey)!==storedBytes)throw new Error('Series storage changed during completion connection');
+    const viewUpdate=view.prepareCompletionUpdate({series:connection.coordinator?.series||pinnedSeries,snapshot:connection.coordinator?.snapshot||null,teamNames});
+    viewUpdate.commit({beforePublish:()=>{
+      if(!current()||!opponentsMatch()||storageOwner.getItem(storageKey)!==storedBytes)throw new Error('Stale binding before commit');
+      this.commitPostseasonBinding({binding:checked,record:prepared.record,token,state:commitState,expectedBytes:gameBytes,persist:newGame||!prepared.noOp});
+      if(newGame)this.withHydration(()=>{clearPendingSessionControls();history=[];redoHistory=[];lastPrediction=null;lastSummary=null;lastCalculationDetail=null;restoreGameState(commitState);syncHistoryControls();captureSessionMemory();update()});
+    }});
+    completionConnection=connection;if(!sameGame)completionProof=null;completionOutcome=null;completionGeneration++;try{renderBindingStatus()}catch{/* Binding is already durably committed. */}
+    queueMicrotask(enqueuePostseasonCompletion);return true;
+  }finally{if(completionSetup===request)completionSetup=0}
+};
+function enqueuePostseasonCompletion(){
+  if(phaseIsRegular()||!gameEnded||rulePending()||!completionConnection?.coordinator||completionConnection.binding.binding_status!=='READY'||!completionProof||completionConnection.inFlight||completionConnection.coordinator.series.history.some(g=>g.game_id===(completionConnection.binding.game_id??completionConnection.binding.official_game_id)))return;
+  const connection=completionConnection,token=phaseSessions.capture(),state=completionState(),generation=++completionGeneration;
+  const expected=connection.coordinator.series.series_revision;
+  Promise.resolve().then(async()=>{
+    if(generation!==completionGeneration||!completionCurrent(connection,token))return;
+    connection.inFlight=true;
+    try{
+      const event=await connection.completion.createCompletedPostseasonGame({binding:connection.binding,series:connection.coordinator.series,state,token,current:phaseSessions.capture(),completed_at:new Date().toISOString()});
+      const outcome=await connection.coordinator.recordCompletedPostseasonGame({event,expected_series_revision:expected});
+      let probabilitySaveError=null;
+      try{await connection.coordinator.saveProbability({beforeCommit:()=>{if(!completionCurrent(connection,token))throw new Error('Stale probability save')}})}catch(error){probabilitySaveError=error.message}
+      if(completionConnection===connection){completionOutcome={...outcome,probabilitySaveError};renderBindingStatus();toast('正式試合結果をシリーズへ登録しました')}
+    }catch(error){if(completionConnection===connection){completionOutcome={registered:false,error:error.message};toast('シリーズ結果を登録できませんでした：'+error.message)}}
+    finally{connection.inFlight=false}
+  });
+}
+// Game End Rules remain independent of the CS advancement rules and of Regular.
+const completionNextHalf=nextHalf;
+function activeGameBinding(){return phaseIsRegular()?null:phaseSessions.current.postseasonBinding}
+function ensurePostseasonInningOption(inning){
+  if(Number.isSafeInteger(inning)&&inning>=1&&inning<=999&&![...$('inning').options].some(x=>x.value===String(inning))){const option=document.createElement('option');option.value=String(inning);option.textContent=inning+'回';$('inning').appendChild(option)}
+}
+function boundRuleThreshold(binding){return binding.game_rules.regulation_innings??0}
+const completionSetHalf=setHalf;
+setHalf=function(v,reset=false){
+  const inning=Number($('inning').value);
+  if(!phaseIsRegular()&&(half!==v||postseasonHalfStart?.inning!==inning||postseasonHalfStart?.half!==v))postseasonHalfStart=Object.freeze({inning,half:v,homeTeamId:homeTeam(),awayTeamId:awayTeam(),homeScore:teamScore(homeTeam()),awayScore:teamScore(awayTeam())});
+  return completionSetHalf(v,reset);
+};
+function boundTermination(boundary){
+  return completionConnection.completion.resolvePostseasonGameEnd({binding:activeGameBinding(),series:completionConnection.coordinator.series,
+    inning:Number($('inning').value),half,homeScore:teamScore(homeTeam()),awayScore:teamScore(awayTeam()),outs,boundary,halfStart:postseasonHalfStart});
+}
+nextHalf=function(){
+  const b=activeGameBinding();
+  if(!b)return completionNextHalf();
+  if(rejectPendingPlay())return true;
+  if(gameEnded){showGameResult();return true}
+  const inning=Number($('inning').value),rules=b.game_rules,threshold=boundRuleThreshold(b);
+  // PA third outs and the manual button close the same half through this shared boundary.
+  if(inning>=threshold){
+    if(b.binding_status!=='READY'||!completionCurrent(completionConnection,phaseSessions.capture())||inning>rules.max_innings)return stopForPendingRules('HALF_END');
+    const resolved=boundTermination('HALF_END');
+    if(resolved.status==='PENDING')return stopForPendingRules('HALF_END',resolved.reason);
+    // The manual button explicitly closes the half, just like a PA third out.
+    if(resolved.status==='END'){outs=3;return finishGame(resolved.endReason)}
+  }
+  if(half==='top'){setHalf('bottom',true);return false}
+  ensurePostseasonInningOption(inning+1);$('inning').value=String(inning+1);setHalf('top',true);return false;
+};
+const completionCheckWalkoff=checkWalkoff;
+checkWalkoff=function(){
+  const b=activeGameBinding();
+  if(!b)return completionCheckWalkoff();
+  if(rulePending()||gameEnded||half!=='bottom'||Number($('inning').value)<boundRuleThreshold(b))return false;
+  if(b.binding_status!=='READY'&&teamScore(homeTeam())<=teamScore(awayTeam()))return false;
+  if(b.binding_status!=='READY'||!completionCurrent(completionConnection,phaseSessions.capture())||Number($('inning').value)>b.game_rules.max_innings)return stopForPendingRules('SCORE');
+  const resolved=boundTermination('SCORE');
+  if(resolved.status==='PENDING')return stopForPendingRules('SCORE',resolved.reason);
+  return resolved.status==='END'?finishGame(resolved.endReason):false;
+};
+const completionFinishGame=finishGame;
+finishGame=function(reason){
+  const b=activeGameBinding();
+  if(b&&(b.binding_status!=='READY'||!completionCurrent(completionConnection,phaseSessions.capture())))return stopForPendingRules();
+  const proof=phaseIsRegular()?null:{outs,half,inning:Number($('inning').value),reason};
+  const result=completionFinishGame(reason);
+  if(result&&proof){completionProof=proof;enqueuePostseasonCompletion()}
+  return result;
+};
+// Capture after each complete input handler, so its own revision increment is included.
+for(const name of ['commitPlateResult','advanceRunner','completeSteal']){
+  if(name==='commitPlateResult'){const original=commitPlateResult;commitPlateResult=function(...args){const result=original(...args);enqueuePostseasonCompletion();return result}}
+  if(name==='advanceRunner'){const original=advanceRunner;advanceRunner=function(...args){const result=original(...args);enqueuePostseasonCompletion();return result}}
+  if(name==='completeSteal'){const original=completeSteal;completeSteal=function(...args){const result=original(...args);enqueuePostseasonCompletion();return result}}
+}
+phaseSessions.retryPostseasonCompletion=function(){enqueuePostseasonCompletion()};
+phaseSessions.getPostseasonCompletion=function(){return completionConnection?.coordinator&&(completionConnection.binding.binding_status==='READY'||completionOutcome)?{series:completionConnection.coordinator.series,snapshot:completionConnection.coordinator.snapshot,result:completionConnection.coordinator.result,outcome:completionOutcome}:null};
+phaseSessions.recheckPostseasonRules=function(){
+  const b=activeGameBinding();if(!b||b.binding_status!=='READY'||!completionCurrent(completionConnection,this.capture()))return false;
+  const boundary=pendingRuleBoundary;
+  if(rulePending()&&!boundary)return false; // Legacy stops have no trustworthy transition to replay.
+  gameRuleStatus='ACTIVE';gameRulePendingReason='';pendingRuleBoundary=null;
+  if(boundary?.action==='HALF_END'&&boundary.inning===Number($('inning').value)&&boundary.half===half)nextHalf();
+  else if(outs>=3)nextHalf();else checkWalkoff();
+  syncOutUI();renderBindingStatus();scheduleUpdate();enqueuePostseasonCompletion();return !rulePending();
+};
+phaseSessions.recordVerifiedOfficialResult=async function(result){
+  const connection=completionConnection,token=this.capture();
+  if(phaseIsRegular()||!connection?.coordinator||!completionCurrent(connection,token)||connection.inFlight)throw new Error('Active Postseason binding required');
+  connection.inFlight=true;
+  try{
+    const event=await connection.completion.createVerifiedOfficialResultEvent({binding:connection.binding,series:connection.coordinator.series,result,token,current:token,testAuthorized:testRuntimeEnabled});
+    const outcome=await connection.coordinator.recordCompletedPostseasonGame({event,expected_series_revision:connection.coordinator.series.series_revision});
+    if(completionConnection===connection){completionOutcome=outcome;renderBindingStatus()}
+    let probabilitySaveError=null;
+    try{await connection.coordinator.saveProbability({beforeCommit:()=>{if(!completionCurrent(connection,token))throw new Error('Stale probability save')}})}catch(error){probabilitySaveError=error.message}
+    return {...outcome,probabilitySaveError};
+  }finally{connection.inFlight=false}
+};
+phaseSessions.getPostseasonProbabilityOptions=function(){const prior=this.current.postseasonLayer?.prior;return prior?{prior,priorAPI:TigersPostseason}:{}};
+phaseSessions.savePostseasonProbability=async function(){const c=completionConnection,t=this.capture();return c?.coordinator?.saveProbability({beforeCommit:()=>{if(!completionCurrent(c,t))throw new Error('Stale probability save')}})||false};
+phaseSessions.completionPurpose=()=>testRuntimeEnabled?'TEST':'PRODUCTION';
+phaseSessions.canFinalizePostseasonGame=()=>{
+  if(phaseIsRegular()||rulePending()||!gameEnded||!completionProof||!completionConnection?.coordinator||completionConnection.coordinator.series.history.some(g=>g.game_id===(completionConnection.binding.game_id??completionConnection.binding.official_game_id)))return false;
+  try{const token=phaseSessions.capture();completionConnection.completion.validateCompletedPostseasonGame({binding:completionConnection.binding,series:completionConnection.coordinator.series,state:completionState(),token,current:token,completed_at:new Date().toISOString()});return completionCurrent(completionConnection,token)}catch{return false}
+};
+// Minimal status and explicit restore API. Loading metadata alone never activates it.
+const bindingNotice=document.createElement('p');bindingNotice.id='postseasonBindingStatus';bindingNotice.setAttribute('role','status');bindingNotice.hidden=true;
+$('gameProbabilityView').prepend(bindingNotice);
+const schedulePanel=document.createElement('section');schedulePanel.id='postseasonScheduleSelector';schedulePanel.className='card';schedulePanel.hidden=true;
+$('gameProbabilityView').prepend(schedulePanel);
+let scheduleSelector=null,scheduleLoadPromise=null;
+function ensureScheduleSelector(){
+  if(scheduleLoadPromise)return scheduleLoadPromise;
+  if(scheduleSelector)return Promise.resolve(scheduleSelector);
+  if(!scheduleLoadPromise)scheduleLoadPromise=import('./postseason-schedule-ui.mjs').then(module=>{
+    scheduleSelector=module.createScheduleSelector({root:schedulePanel,runtime:phaseSessions,storage:localStorage,testAuthorized:testRuntimeEnabled});
+    return scheduleSelector.load().then(()=>scheduleSelector);
+  }).catch(error=>{scheduleLoadPromise=null;schedulePanel.textContent='公式日程を読み込めません：'+error.message;return null});
+  return scheduleLoadPromise;
+}
+phaseSessions.whenPostseasonScheduleReady=function(){if(phaseIsRegular())return Promise.reject(new Error('Explicit Postseason mode required'));return ensureScheduleSelector()};
+function renderBindingStatus(){
+  if(!bindingNotice)return;
+  const b=activeGameBinding(),status=phaseIsRegular()?'UNBOUND':rulePending()?'RULE_PENDING':b?.binding_status||'UNBOUND';
+  bindingNotice.hidden=phaseIsRegular();bindingNotice.dataset.bindingStatus=status;
+  bindingNotice.textContent=({UNBOUND:'公式試合情報：未接続',BOUND:'試合情報接続済み・終了ルール未確定',RULE_PENDING:'終了ルール未確定：試合入力停止',READY:'試合情報・終了ルール接続済み（READY）'})[status]+(b?.purpose==='TEST'?' ｜ TEST fixture（技術検証用）':'')+(b&&b.schedule_status!=='SCHEDULED'?' ｜ '+b.schedule_status:'');
+  schedulePanel.hidden=phaseIsRegular();
+  if(scheduleSelector)scheduleSelector.render();else if(!phaseIsRegular())void ensureScheduleSelector();
+}
+phaseSessions.bindPostseasonGame=function(options){
+  if(options.binding?.schema_version!==1||typeof (options.binding.game_id??options.binding.official_game_id)!=='string'||!['BOUND','READY'].includes(options.binding.binding_status))return Promise.reject(new Error('Complete PostseasonGameBinding schema required'));
+  return this.connectPostseasonCompletion(options);
+};
+phaseSessions.getPostseasonGameBinding=function(){const b=activeGameBinding();return Object.freeze({status:phaseIsRegular()?'UNBOUND':rulePending()?'RULE_PENDING':b?.binding_status||'UNBOUND',binding:b})};
+phaseSessions.restorePostseasonGameBinding=function(options){
+  if(phaseIsRegular())return Promise.reject(new Error('Postseason session required for binding restore'));
+  const saved=this.current.savedPostseasonBindingRecord;
+  if(!saved)return Promise.resolve(false);
+  return this.bindPostseasonGame({...options,binding:saved.active});
+};
+phaseSessions.inspectSession=function(){const state=snapshot();delete state.learningLength;delete state.stealLearningLength;return {context:this.active.context,sessionId:this.active.id,revision:this.active.revision,epoch:this.epoch,
+  gameState:JSON.parse(JSON.stringify(state)),lineup:{tLine:[...state.tLine],oLine:[...state.oLine]},learning:JSON.parse(JSON.stringify(observedLearning)),historyLength:history.length,redoLength:redoHistory.length,
+  gameDirty:this.active.gameDirty,learningDirty:this.active.learningDirty,
+  pendingRunnerPlay:Boolean(pendingRunnerPlay),stealBase,searching:Boolean(searchTarget),openDockPanel,nextGameTransitioning}};
+phaseSessions.withHydration(()=>{refreshPlayerUI();decorateSearchSelects();decorateLineupReordering();updateStatus();restoreGameState();updateLearningUI();updateFieldState();update();captureSessionMemory()});
+phaseSessions.ready=true;
 })();

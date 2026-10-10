@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "season": 2026,
+  "purpose": "PRODUCTION",
+  "status": "READY",
+  "asset": "./data/regular-final-prior-2026.json",
+  "prior_id": "prior-fcea6fea1b61b17991c0a6570c7fddf3a79f7001a7c4dccdc182525193c2805b",
+  "content_hash": "fcea6fea1b61b17991c0a6570c7fddf3a79f7001a7c4dccdc182525193c2805b"
+}

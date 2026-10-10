@@ -48,7 +48,7 @@ body .toast{bottom:calc(142px + env(safe-area-inset-bottom))}
 .gameDockTab{min-width:0;height:46px;padding:0 3px;border:0;border-right:1px solid var(--line);border-radius:0;background:#17171a;color:#dcdce0;font-size:11px;white-space:nowrap}
 .gameDockTab:last-child{border-right:0}
 .gameDockTab.active{background:var(--accent);color:#111}
-.gameDockPanel{position:absolute;top:100%;left:0;right:0;max-height:calc(100dvh - var(--game-dock-head) - env(safe-area-inset-top));overflow:hidden;padding:14px;background:#17171a;border:1px solid #505057;border-top-color:var(--accent);box-shadow:0 18px 34px rgba(0,0,0,.66)}
+.gameDockPanel{position:absolute;top:100%;left:0;right:0;max-height:calc(100dvh - var(--game-dock-head) - env(safe-area-inset-top));overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:14px;background:#17171a;border:1px solid #505057;border-top-color:var(--accent);box-shadow:0 18px 34px rgba(0,0,0,.66)}
 .gameDockPanel[hidden]{display:none}
 .dockPanelHeading{font-size:14px;font-weight:900;color:var(--accent);margin-bottom:12px}
 .dockGameGrid{display:grid;grid-template-columns:minmax(110px,.75fr) minmax(0,1.6fr);gap:10px;align-items:end}
@@ -62,6 +62,8 @@ body .toast{bottom:calc(142px + env(safe-area-inset-bottom))}
 .dockParkControl label{margin:0}
 .dockParkControl select{min-width:0;width:100%}
 .dockOutButtons{max-width:360px}
+.dockNextGameRow{display:flex;justify-content:flex-end;margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
+.dockNextGameRow button{min-width:132px;min-height:40px;padding:8px 12px;border-radius:7px;background:#202024;color:#dedee2}
 .dockCountGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .dockBallButtons{grid-template-columns:repeat(4,1fr)}
 .dockStrikeButtons{grid-template-columns:repeat(3,1fr)}
@@ -117,8 +119,8 @@ body .toast{bottom:calc(142px + env(safe-area-inset-bottom))}
 .lineupOrderItem .searchSelect{gap:4px}
 .lineupOrderItem .searchTrigger{flex-basis:40px;min-width:40px;padding-left:3px;padding-right:3px}
 .lastActionStatus{margin-top:9px;padding:10px 12px;border-left:3px solid var(--accent);background:#111114;color:#dedee2;font-size:12px;line-height:1.5;min-height:38px}
-.playerSearchDialog,.stealDialog,.gameResultDialog,.runnerAdvanceDialog{width:min(500px,calc(100% - 24px));max-height:min(720px,calc(100dvh - 28px));color:var(--text);background:var(--card);border:1px solid #55555c;border-radius:8px;padding:16px;box-shadow:0 18px 55px rgba(0,0,0,.65)}
-.playerSearchDialog::backdrop,.stealDialog::backdrop,.gameResultDialog::backdrop,.runnerAdvanceDialog::backdrop{background:rgba(0,0,0,.76)}
+.playerSearchDialog,.stealDialog,.gameResultDialog,.nextGameConfirmDialog,.runnerAdvanceDialog{width:min(500px,calc(100% - 24px));max-height:min(720px,calc(100dvh - 28px));color:var(--text);background:var(--card);border:1px solid #55555c;border-radius:8px;padding:16px;box-shadow:0 18px 55px rgba(0,0,0,.65)}
+.playerSearchDialog::backdrop,.stealDialog::backdrop,.gameResultDialog::backdrop,.nextGameConfirmDialog::backdrop,.runnerAdvanceDialog::backdrop{background:rgba(0,0,0,.76)}
 .dialogHeader{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
 .dialogHeader strong{font-size:16px}
 .dialogHeader button{width:40px;height:40px;padding:0;font-size:22px}
@@ -158,6 +160,9 @@ body .toast{bottom:calc(142px + env(safe-area-inset-bottom))}
 .gameResultScore{color:#d7d7db;font-size:15px;font-weight:750}
 .gameResultActions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:22px}
 .gameResultActions button{min-height:48px}
+.nextGameConfirmDialog p{margin:4px 0 18px;color:#d7d7db;font-size:14px;line-height:1.65}
+.nextGameConfirmActions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.nextGameConfirmActions button{min-height:46px}
 .rosterSourceNote{margin-top:8px;color:var(--muted);font-size:11px;line-height:1.6}
 .learningPanel .row>div{min-width:0}
 #learningGameDate{display:block;min-width:0;max-width:100%}
@@ -200,32 +205,6 @@ body .toast{bottom:calc(142px + env(safe-area-inset-bottom))}
   .calculationFactorTitle{display:block}
   .calculationFactorTitle span{display:block;margin-top:3px;text-align:left}
 }
-/* v3 game log */
-.dbLogPanel{margin:16px auto;max-width:760px;border:1px solid #3b3b3f;border-radius:8px;background:#171719;color:#f4f4f4}
-.dbLogPanel>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;cursor:pointer;font-weight:700}
-.dbLogPanel>summary::marker{color:#d7ab43}
-.dbLogSummaryStatus{font-size:12px;font-weight:600;color:#d8d8dc;text-align:right}
-.dbLogBody{padding:0 14px 14px;border-top:1px solid #303034}
-.dbLogBody label{display:block;margin:12px 0 6px;font-size:12px;color:#c9c9ce}
-.dbLogLoginRow,.dbLogAccount,.dbLogControlButtons{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.dbLogLoginRow input{min-width:0;flex:1 1 220px;padding:9px 10px;border:1px solid #49494f;border-radius:6px;background:#0f0f10;color:#fff}
-.dbLogAccount{justify-content:space-between;margin-top:12px}
-.dbLogAccount span{min-width:0;overflow-wrap:anywhere}
-.dbLogControls{margin-top:12px}
-.dbLogGameMeta{display:grid;grid-template-columns:minmax(0,1fr) minmax(120px,.55fr);gap:8px}
-.dbLogGameMeta label{margin:0}
-.dbLogGameMeta select,.dbLogGameMeta input{width:100%;min-height:36px;margin-top:5px;padding:6px 8px;border:1px solid #49494f;border-radius:6px;background:#0f0f10;color:#fff}
-.dbLogGameMeta select:disabled,.dbLogGameMeta input:disabled{opacity:.55}
-.dbLogSeriesNumber{display:flex;align-items:center;gap:5px;white-space:nowrap}
-.dbLogSeriesNumber input{min-width:54px}
-.dbLogControlButtons{margin-top:10px}
-.dbLogPanel button{min-height:36px;padding:7px 12px;border:1px solid #55555c;border-radius:6px;background:#29292d;color:#fff;font-weight:700}
-.dbLogPanel button:first-of-type{border-color:#97752d;background:#4a3a17}
-.dbLogPanel button:disabled{opacity:.45;cursor:not-allowed}
-.dbLogStatus{min-height:1.4em;margin:10px 0 0;color:#e0c778;font-size:13px;overflow-wrap:anywhere}
-.dbLogNote{margin:7px 0 0;color:#a9a9af;font-size:12px;line-height:1.55}
-@media(max-width:600px){.dbLogPanel{margin:12px 10px}.dbLogLoginRow button,.dbLogControlButtons button{flex:1 1 auto}.dbLogAccount{align-items:flex-start}.dbLogGameMeta{grid-template-columns:1fr}}
-
 /* League Baseline Model v1 */
 .appViewTabs{display:grid;grid-template-columns:1fr 1fr;gap:0;margin:0 0 14px;border:1px solid #4b4b51;border-radius:8px;overflow:hidden;background:#171719}
 .appViewTabs button{min-height:44px;border:0;border-right:1px solid #4b4b51;border-radius:0;background:transparent;color:#c9c9ce}
@@ -333,3 +312,156 @@ body.leagueSimulatorMode .historyDock{display:none!important}
   .leagueFixtureGroup>summary{padding:8px}
   .leagueFixtureDay .leagueFixtureMeta{grid-template-columns:42px minmax(0,1fr)}
 }
+
+/* What-if Scenario workspace */
+.leagueNormalContent{display:grid;min-width:0;gap:14px}
+.leagueNormalContent>*{min-width:0}
+.leagueNormalContent[hidden],.whatIfView[hidden],.whatIfComparison[hidden]{display:none!important}
+.leagueHeroActions{display:grid;justify-items:stretch;gap:8px;flex:0 0 auto}
+.whatIfEntry{min-height:42px;border-color:#9a7c22;background:#29230f;color:#f4dc69}
+.whatIfView{display:grid;min-width:0;gap:12px;padding-bottom:24px}
+.whatIfHeader{position:sticky;z-index:12;top:0;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;padding:12px 14px;border:1px solid #6f5e22;border-left:4px solid var(--accent);background:#19170f;box-shadow:0 8px 24px rgba(0,0,0,.38)}
+.whatIfIdentity{min-width:0}
+.whatIfModeLabel{display:block;color:#f3da5c;font-size:12px;font-weight:900}
+.whatIfIdentity label{margin:6px 0 3px;color:#aaa79a;font-size:10px}
+.whatIfIdentity input,.whatIfDialog input{width:100%;min-height:42px;padding:8px 10px;border:1px solid #655a31;border-radius:6px;background:#0f0f10;color:#fff;font-size:16px}
+.whatIfBaseMeta{margin-top:5px;color:#aaa79a;font-size:10px;line-height:1.4}
+.whatIfHeaderActions{display:grid;grid-template-columns:repeat(3,minmax(84px,1fr));gap:6px;align-content:center}
+.whatIfHeaderActions button{min-height:42px;padding:7px 8px;border-radius:6px;font-size:12px}
+.whatIfControlPanel,.whatIfFixturePanel,.whatIfComparison{min-width:0;padding:14px;border:1px solid #3f3d34;background:#171719}
+.whatIfFixtureFilter{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.whatIfFixtureFilter button{min-height:42px;border-radius:6px}
+.whatIfFixtureFilter button.active{background:#f0d83e;color:#111}
+.whatIfRunMeta{display:flex;justify-content:space-between;gap:10px;margin:11px 0 8px;color:#b7b7bd;font-size:12px}
+.whatIfRunMeta span:first-child{color:#f0d85a;font-weight:850}
+.whatIfRunButton{width:100%;min-height:48px;border-radius:6px}
+.whatIfFixtureList{display:grid;gap:8px}
+.whatIfFixtureGroup{margin:0;padding:0;border:1px solid #3b3b40;border-radius:6px;overflow:hidden}
+.whatIfFixtureGroup>summary{display:flex;align-items:center;gap:8px;min-height:44px;padding:8px 10px;list-style:none;background:#202024;font-size:13px;font-weight:850}
+.whatIfFixtureGroup>summary::-webkit-details-marker{display:none}
+.whatIfFixtureGroup>summary::before{content:'▶';color:#d7c767;font-size:10px}
+.whatIfFixtureGroup[open]>summary::before{content:'▼'}
+.whatIfFixtureGroup>summary small{margin-left:auto;color:#aaaab2;font-size:10px;font-weight:600}
+.whatIfFixtureGroupBody{display:grid;gap:7px;padding:7px}
+.whatIfFixtureRow{padding:10px;border-left:3px solid #4b4b52;background:#111113}
+.whatIfFixtureRow.tigersFixture{border-left-color:var(--accent);background:#1c1a0f}
+.whatIfFixtureRow.hasAssumption{border-left-color:#62bd7d;background:#122019}
+.whatIfFixtureRow.isCanceled{border-left-color:#d49d46;background:#201a12}
+.whatIfFixtureTop{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px}
+.whatIfFixtureTeams{min-width:0;font-size:13px;font-weight:850}
+.whatIfFixtureTeams small{display:block;margin-top:3px;color:#929299;font-size:10px;font-weight:500}
+.whatIfFixtureDate{flex:0 0 auto;color:#d7c767;font-size:11px;font-weight:800}
+.whatIfBaseOverride{display:block;margin:0 0 7px;color:#9fb8d7;font-size:10px}
+.whatIfOutcomeGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
+.whatIfOutcomeGrid button{min-width:0;min-height:40px;padding:7px 5px;border-radius:6px;font-size:11px;line-height:1.2}
+.whatIfOutcomeGrid button.active{background:#f0d83e;color:#111;border-color:#f0d83e}
+.whatIfCancelButton{width:100%;min-height:36px;margin-top:5px;padding:6px;border-radius:6px;color:#d8bd8f;font-size:10px}
+.whatIfCancelButton.active{background:#5c4219;color:#ffe0a7;border-color:#9a7132}
+.whatIfResultState{color:#9cd5aa;font-size:11px;font-weight:850}
+.whatIfResultState.stale{color:#ffd27b}
+.whatIfHeadlineResults{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.whatIfHeadlineItem{padding:10px;border-left:3px solid #5c5c63;background:#111113}
+.whatIfHeadlineItem span{display:block;color:#9f9fa6;font-size:10px}
+.whatIfHeadlineItem strong{display:block;margin-top:5px;color:#f3f3f4;font-size:20px}
+.whatIfHeadlineItem small{display:block;margin-top:3px;color:#f0d85a;font-size:11px}
+.whatIfComparisonTable,.whatIfRankTable{width:100%;min-width:610px;border-collapse:collapse;font-size:12px;font-variant-numeric:tabular-nums}
+.whatIfComparisonTable th,.whatIfComparisonTable td,.whatIfRankTable th,.whatIfRankTable td{padding:9px;border-bottom:1px solid #34343a;text-align:right;white-space:nowrap}
+.whatIfComparisonTable th:first-child,.whatIfComparisonTable td:first-child,.whatIfComparisonTable th:nth-child(2),.whatIfComparisonTable td:nth-child(2),.whatIfRankTable th:first-child{text-align:left}
+.whatIfComparisonTable .positive,.whatIfRankTable .positive{color:#8fd5a3}
+.whatIfComparisonTable .negative,.whatIfRankTable .negative{color:#f0a0a0}
+.whatIfRankDetails{margin-top:12px}
+.whatIfRankDetails>summary{min-height:42px;padding:10px 0}
+.whatIfDialog{width:min(540px,calc(100% - 20px));max-height:calc(100dvh - 24px);overflow:auto;padding:16px;color:#eee;background:#18181b;border:1px solid #5d5d64;border-radius:8px}
+.whatIfDialog::backdrop{background:rgba(0,0,0,.76)}
+.whatIfDialogStatus{min-height:0;margin:0;color:#a8d8b4;font-size:12px;line-height:1.5}
+.whatIfDialogStatus:not(:empty){margin:0 0 10px;padding:8px;border-left:3px solid #62bd7d;background:#122019}
+.whatIfDialogStatus.error,.leagueRunStatus.error{color:#ffc2c2}
+.whatIfDialogStatus.error:not(:empty){border-left-color:#d86666;background:#2b1717}
+.whatIfCreateButton{width:100%;min-height:46px;margin-top:10px;border-radius:6px}
+.whatIfSavedHeading{margin:18px 0 8px;color:#d5d5da;font-size:12px;font-weight:850}
+.whatIfSavedList{display:grid;gap:7px}
+.whatIfSavedEmpty{padding:16px 4px;color:#909097;text-align:center;font-size:12px}
+.whatIfSavedError{color:#ffc2c2}
+.whatIfSavedRow{padding:10px;border:1px solid #3a3a40;background:#111113}
+.whatIfSavedMeta strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.whatIfSavedMeta span{display:block;margin-top:4px;color:#929299;font-size:10px}
+.whatIfSavedActions{display:grid;grid-template-columns:1fr auto auto;gap:5px;margin-top:9px}
+.whatIfSavedActions button{min-height:38px;padding:6px 8px;border-radius:6px;font-size:11px}
+.whatIfSavedActions .danger{background:#352020}
+@media(max-width:600px){
+  .whatIfHeader{grid-template-columns:1fr;padding:10px;top:0}
+  .whatIfHeaderActions{grid-template-columns:repeat(3,1fr)}
+  .whatIfControlPanel,.whatIfFixturePanel,.whatIfComparison{padding:10px}
+  .whatIfHeadlineResults{grid-template-columns:1fr}
+  .leagueHero{display:grid;grid-template-columns:minmax(0,1fr);align-items:stretch}
+  .leagueHeroActions{grid-row:1;width:100%}
+  .leagueHeroActions .leagueSnapshotStatus{margin-top:0}
+}
+@media(max-width:380px){
+  .whatIfHeaderActions{grid-template-columns:1fr 1fr}
+  .whatIfHeaderActions #exitWhatIf{grid-column:1/-1}
+  .whatIfRunMeta{display:grid;gap:3px}
+}
+
+/* Stage 4B-1: scoped mode/Series layout; existing Regular styles stay intact. */
+.wrap>header>.logo{flex:none}
+.wrap>header>div:last-child{flex:1;min-width:0}
+.wrap>.appModeTabs,.postseasonFeatureTabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;width:100%;margin:0 0 12px}
+.postseasonFeatureTabs{grid-template-columns:repeat(3,minmax(0,1fr))}
+.appModeTabs button,.postseasonFeatureTabs button{min-width:0;min-height:44px;position:relative}
+.appModeTabs button[aria-selected=true],.postseasonFeatureTabs button[aria-selected=true]{font-weight:900;text-decoration:underline;text-underline-offset:5px;text-decoration-thickness:2px}
+.appModeTabs button:focus-visible,.postseasonFeatureTabs button:focus-visible,.seriesStageLabel select:focus-visible,.seriesRules summary:focus-visible{outline:3px solid var(--blue);outline-offset:3px}
+.modeNavigationStatus:empty{display:none}
+.modeNavigationStatus{color:var(--accent);font-size:12px;margin-bottom:12px}
+body.postseasonMode:not(.postseasonGameMode) .gameDockShell,body.postseasonMode:not(.postseasonGameMode) .probDock,body.postseasonMode:not(.postseasonGameMode) .historyDock{display:none!important}
+body.postseasonMode:not(.postseasonGameMode) .wrap{padding-top:calc(16px + env(safe-area-inset-top));padding-bottom:32px}
+body.postseasonMode:not(.postseasonGameMode) .toast{bottom:16px}
+#regularModeView[hidden],#postseasonModeView[hidden],#postseasonModeView [role=tabpanel][hidden]{display:none!important}
+.postseasonModeLabel{font-size:12px;font-weight:750;color:var(--muted);margin:0 2px 10px}
+.postseasonPlaceholder h2{margin:0 0 10px;font-size:19px}
+.postseasonPlaceholder p,.seriesLoading{font-size:14px;color:var(--muted)}
+#postseasonSeriesPanel{min-width:0;width:100%}
+.seriesViewHeading{display:flex;align-items:center;gap:10px;width:100%;margin:16px 2px 12px}
+.seriesViewHeading>div{flex:1;min-width:0}
+.seriesViewHeading h2{margin:0;font-size:22px;line-height:1.35}
+.seriesViewHeading p{font-size:12px;color:var(--muted);margin:5px 0 0;width:100%}
+.seriesTestBadge{flex:none;background:#493b13;color:#ffe28d;border:1px solid #a88429;border-radius:6px;padding:4px 7px;font-size:12px;font-weight:900}
+.seriesStageLabel{display:flex;gap:12px;align-items:center;margin:0 0 12px}
+.seriesStageLabel select{flex:1;min-width:0;font-size:14px;padding:8px;min-height:44px}
+.seriesCard{width:100%;min-width:0;padding:16px}
+.seriesStatus{font-size:12px;color:var(--muted);margin-bottom:8px}
+.seriesMatchup{font-size:22px;line-height:1.35;margin:0 0 14px;overflow-wrap:anywhere}
+.seriesActualHeading{font-size:12px;color:var(--muted);margin-bottom:6px}
+.seriesActualHeading span{float:right}
+.seriesActual{margin:0 0 12px}
+.seriesActual>div,.seriesRules dl>div{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin:6px 0}
+.seriesActual dt{min-width:0;overflow-wrap:anywhere;font-size:15px;font-weight:800}
+.seriesActual dd{margin:0;flex:none;font-size:17px;font-weight:850;font-variant-numeric:tabular-nums}
+.seriesSeed{font-size:10px;color:var(--muted);font-weight:600}
+.seriesAdvantage{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 12px;border-top:1px dashed var(--line);padding-top:8px;font-size:12px;color:var(--muted)}
+.seriesAdvantage strong{color:var(--text)}
+.seriesAdvantage small{font-size:11px}
+.seriesWinner{font-weight:800;color:var(--accent);font-size:14px}
+.seriesProbability{padding:12px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin-top:12px}
+.seriesProbability h4,.seriesNextGame h4{font-size:13px;margin:0 0 6px}
+.seriesProbability p,.seriesNextGame p,.seriesRules p{font-size:12px;line-height:1.65;margin:4px 0;color:var(--muted);white-space:pre-line;overflow-wrap:anywhere}
+.seriesProbabilityNumbers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.seriesProbabilityNumbers[hidden]{display:none}
+.seriesProbabilityNumbers>div{min-width:0}
+.seriesProbabilityNumbers span{display:block;font-size:12px;margin-bottom:3px;overflow-wrap:anywhere}
+.seriesProbabilityNumbers strong{font-size:28px;font-variant-numeric:tabular-nums;color:var(--accent)}
+.seriesNextGame{margin:12px 0}
+.seriesRules{font-size:12px;border-top:1px solid var(--line);padding-top:10px}
+.seriesRules summary{cursor:pointer;padding:6px 0;min-height:32px}
+.seriesRules dl{margin:8px 0}
+.seriesRules dd{margin:0;text-align:right;overflow-wrap:anywhere}
+
+/* Stage 4B-2: the single shared game panel, with phase-local data. */
+#postseasonGamePanel{min-width:0;width:100%}
+.gamePhaseNotice{padding:12px;border:1px solid var(--line);border-radius:12px;margin-bottom:12px;font-size:13px;line-height:1.6;overflow-wrap:anywhere}
+.gamePhaseNotice[hidden],#gameProbabilityView [data-regular-only][hidden]{display:none!important}
+body.postseasonGameMode .badge{max-width:100%;white-space:normal;overflow-wrap:anywhere}
+#postseasonScheduleSelector input {width:100%;max-width:100%;box-sizing:border-box;color:var(--text);background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:10px;font-size:16px}
+#postseasonScheduleSelector button {width:100%;margin:6px 0}
+#postseasonScheduleSelector p,#postseasonScheduleSelector a {overflow-wrap:anywhere}
+#postseasonScheduleSelector details {margin-top:12px}

@@ -1,0 +1,528 @@
+{
+  "schema_version": 1,
+  "manifest_id": "npb-2026-central-cs-reviewed",
+  "source_revision": 3,
+  "purpose": "PRODUCTION",
+  "season": 2026,
+  "phase": "POSTSEASON",
+  "competition": "CS",
+  "league": "CENTRAL",
+  "sources": {
+    "cs-format": {
+      "url": "https://npb.jp/games/2026/info_cs.html",
+      "type": "NPB_OFFICIAL",
+      "source_revision": "published:2026-08-24",
+      "verified_at": "2026-10-04T15:15:33Z"
+    },
+    "cs-schedule": {
+      "url": "https://npb.jp/games/2026/schedule_climax_cl.pdf",
+      "type": "NPB_OFFICIAL",
+      "source_revision": "published:2026-10-06",
+      "verified_at": "2026-10-09T17:51:29Z"
+    },
+    "tigers-final": {
+      "url": "https://npb.jp/news/detail/20261003_04.html",
+      "type": "NPB_OFFICIAL",
+      "source_revision": "published:2026-10-03",
+      "verified_at": "2026-10-04T15:15:33Z"
+    },
+    "final-tickets": {
+      "url": "https://hanshintigers.jp/ticket/postseason/",
+      "type": "CLUB_OFFICIAL",
+      "source_revision": "2026-CS-Final:retrieved:2026-10-04T15:15:33Z",
+      "verified_at": "2026-10-04T15:15:33Z"
+    },
+    "regular-standings": {
+      "url": "https://npb.jp/bis/2026/stats/std_c.html",
+      "type": "NPB_OFFICIAL",
+      "source_revision": "final:2026-10-08",
+      "verified_at": "2026-10-09T17:51:29Z"
+    },
+    "regular-schedule": {
+      "url": "https://npb.jp/games/2026/schedule_10.html",
+      "type": "NPB_OFFICIAL",
+      "source_revision": "retrieved:2026-10-04T15:15:33Z",
+      "verified_at": "2026-10-04T15:15:33Z"
+    },
+    "cs-announcement": {
+      "url": "https://npb.jp/news/detail/20261006_04.html",
+      "type": "NPB_OFFICIAL",
+      "source_revision": "published:2026-10-06",
+      "verified_at": "2026-10-09T17:51:29Z"
+    },
+    "game-end-rules": {
+      "url": "https://npb.jp/games/2026/info_cscl.html",
+      "type": "NPB_OFFICIAL",
+      "source_revision": "retrieved:2026-10-09T18:11:28Z",
+      "verified_at": "2026-10-09T18:11:28Z"
+    },
+    "regular-final-confirmation": {
+      "url": "https://npb.jp/news/detail/20261009_02.html",
+      "type": "NPB_OFFICIAL",
+      "source_revision": "published:2026-10-09",
+      "verified_at": "2026-10-09T17:51:29Z"
+    },
+    "regular-aggregates": {
+      "url": "https://npb.jp/bis/2026/stats/",
+      "type": "NPB_OFFICIAL",
+      "source_revision": "final:2026-10-08",
+      "verified_at": "2026-10-09T17:51:29Z"
+    }
+  },
+  "participants": {
+    "CENTRAL_RANK_1": {
+      "label": "セ・リーグ1位",
+      "status": "CONFIRMED",
+      "team_id": "Tigers",
+      "source_ref": "tigers-final"
+    },
+    "CENTRAL_RANK_2": {
+      "label": "セ・リーグ2位",
+      "status": "CONFIRMED",
+      "team_id": "Giants",
+      "source_ref": "cs-announcement"
+    },
+    "CENTRAL_RANK_3": {
+      "label": "セ・リーグ3位",
+      "status": "CONFIRMED",
+      "team_id": "BayStars",
+      "source_ref": "cs-announcement"
+    },
+    "CENTRAL_FIRST_WINNER": {
+      "label": "First Stage勝者",
+      "status": "TBD",
+      "team_id": null,
+      "source_ref": null
+    }
+  },
+  "series": {
+    "FIRST": {
+      "series_id": "cs-2026-central-first",
+      "higher_slot": "CENTRAL_RANK_2",
+      "lower_slot": "CENTRAL_RANK_3",
+      "source_ref": "cs-format",
+      "qualification": null
+    },
+    "FINAL": {
+      "series_id": "cs-2026-central-final",
+      "higher_slot": "CENTRAL_RANK_1",
+      "lower_slot": "CENTRAL_FIRST_WINNER",
+      "source_ref": "cs-format",
+      "qualification": null,
+      "verified_format": {
+        "mode": "NORMAL",
+        "max_physical_games": 6,
+        "advantage_wins": 1,
+        "wins_needed": 4,
+        "source_ref": "cs-announcement"
+      },
+      "qualification_candidates": {
+        "Giants": {
+          "higherTeamId": "Tigers",
+          "lowerTeamId": "Giants",
+          "gamesBehind": 2.5,
+          "challengerRegularWinPct": 0.5428571428571428,
+          "source_ref": "regular-standings"
+        },
+        "BayStars": {
+          "higherTeamId": "Tigers",
+          "lowerTeamId": "BayStars",
+          "gamesBehind": 7.5,
+          "challengerRegularWinPct": 0.5071428571428571,
+          "source_ref": "regular-standings"
+        }
+      }
+    }
+  },
+  "regular_final": {
+    "status": "FINAL",
+    "dataset_final": true,
+    "remaining_games": 0,
+    "pending_reschedules": 0,
+    "unknown_games": 0,
+    "final_standings": true,
+    "source_ref": "regular-final-confirmation",
+    "schedule_source_ref": "regular-schedule",
+    "dataset_source_ref": "regular-aggregates",
+    "as_of": "2026-10-08",
+    "reason": "NPBの10/9発表で10/8のセ・パ全公式戦終了を確認。12球団の個人成績は全日程終了、球団成績は各143試合。"
+  },
+  "games": [
+    {
+      "schedule_slot_id": "central-first-1",
+      "source_fixture_id": null,
+      "official_game_id": null,
+      "official_url": null,
+      "identity_source_ref": null,
+      "stage": "FIRST",
+      "game_number": 1,
+      "date": "2026-10-10",
+      "scheduled_at": "2026-10-10T05:00:00Z",
+      "time_source_ref": "cs-schedule",
+      "venue": {
+        "id": "tokyo-dome",
+        "name": "東京ドーム",
+        "source_ref": "cs-schedule"
+      },
+      "venue_slot": "CENTRAL_RANK_2_HOME",
+      "home_slot": "CENTRAL_RANK_2",
+      "away_slot": "CENTRAL_RANK_3",
+      "schedule_status": "SCHEDULED",
+      "requires_special_format": false,
+      "schedule_source_ref": "cs-schedule",
+      "game_rules": {
+        "status": "RESOLVED",
+        "ruleset_id": "npb-2026-cs-central-game-end-v1",
+        "regulation_innings": 9,
+        "max_innings": 12,
+        "tie_at_limit": true,
+        "walkoff_allowed": true,
+        "tie_replay": false,
+        "clinch_tie_called_game": true,
+        "source_ref": "game-end-rules"
+      }
+    },
+    {
+      "schedule_slot_id": "central-first-2",
+      "source_fixture_id": null,
+      "official_game_id": null,
+      "official_url": null,
+      "identity_source_ref": null,
+      "stage": "FIRST",
+      "game_number": 2,
+      "date": "2026-10-11",
+      "scheduled_at": "2026-10-11T05:00:00Z",
+      "time_source_ref": "cs-schedule",
+      "venue": {
+        "id": "tokyo-dome",
+        "name": "東京ドーム",
+        "source_ref": "cs-schedule"
+      },
+      "venue_slot": "CENTRAL_RANK_2_HOME",
+      "home_slot": "CENTRAL_RANK_2",
+      "away_slot": "CENTRAL_RANK_3",
+      "schedule_status": "SCHEDULED",
+      "requires_special_format": false,
+      "schedule_source_ref": "cs-schedule",
+      "game_rules": {
+        "status": "RESOLVED",
+        "ruleset_id": "npb-2026-cs-central-game-end-v1",
+        "regulation_innings": 9,
+        "max_innings": 12,
+        "tie_at_limit": true,
+        "walkoff_allowed": true,
+        "tie_replay": false,
+        "clinch_tie_called_game": true,
+        "source_ref": "game-end-rules"
+      }
+    },
+    {
+      "schedule_slot_id": "central-first-3",
+      "source_fixture_id": null,
+      "official_game_id": null,
+      "official_url": null,
+      "identity_source_ref": null,
+      "stage": "FIRST",
+      "game_number": 3,
+      "date": "2026-10-12",
+      "scheduled_at": "2026-10-12T05:00:00Z",
+      "time_source_ref": "cs-schedule",
+      "venue": {
+        "id": "tokyo-dome",
+        "name": "東京ドーム",
+        "source_ref": "cs-schedule"
+      },
+      "venue_slot": "CENTRAL_RANK_2_HOME",
+      "home_slot": "CENTRAL_RANK_2",
+      "away_slot": "CENTRAL_RANK_3",
+      "schedule_status": "SCHEDULED",
+      "requires_special_format": false,
+      "schedule_source_ref": "cs-schedule",
+      "game_rules": {
+        "status": "RESOLVED",
+        "ruleset_id": "npb-2026-cs-central-game-end-v1",
+        "regulation_innings": 9,
+        "max_innings": 12,
+        "tie_at_limit": true,
+        "walkoff_allowed": true,
+        "tie_replay": false,
+        "clinch_tie_called_game": true,
+        "source_ref": "game-end-rules"
+      }
+    },
+    {
+      "schedule_slot_id": "central-final-1",
+      "source_fixture_id": null,
+      "official_game_id": null,
+      "official_url": null,
+      "identity_source_ref": null,
+      "stage": "FINAL",
+      "game_number": 1,
+      "date": "2026-10-14",
+      "scheduled_at": "2026-10-14T09:00:00Z",
+      "time_source_ref": "cs-schedule",
+      "venue": {
+        "id": "koshien",
+        "name": "阪神甲子園球場",
+        "source_ref": "cs-schedule"
+      },
+      "venue_slot": "CENTRAL_RANK_1_HOME",
+      "home_slot": "CENTRAL_RANK_1",
+      "away_slot": "CENTRAL_FIRST_WINNER",
+      "schedule_status": "SCHEDULED",
+      "requires_special_format": false,
+      "schedule_source_ref": "cs-schedule",
+      "game_rules": {
+        "status": "RESOLVED",
+        "ruleset_id": "npb-2026-cs-central-game-end-v1",
+        "regulation_innings": 9,
+        "max_innings": 12,
+        "tie_at_limit": true,
+        "walkoff_allowed": true,
+        "tie_replay": false,
+        "clinch_tie_called_game": true,
+        "source_ref": "game-end-rules"
+      }
+    },
+    {
+      "schedule_slot_id": "central-final-2",
+      "source_fixture_id": null,
+      "official_game_id": null,
+      "official_url": null,
+      "identity_source_ref": null,
+      "stage": "FINAL",
+      "game_number": 2,
+      "date": "2026-10-15",
+      "scheduled_at": "2026-10-15T09:00:00Z",
+      "time_source_ref": "cs-schedule",
+      "venue": {
+        "id": "koshien",
+        "name": "阪神甲子園球場",
+        "source_ref": "cs-schedule"
+      },
+      "venue_slot": "CENTRAL_RANK_1_HOME",
+      "home_slot": "CENTRAL_RANK_1",
+      "away_slot": "CENTRAL_FIRST_WINNER",
+      "schedule_status": "SCHEDULED",
+      "requires_special_format": false,
+      "schedule_source_ref": "cs-schedule",
+      "game_rules": {
+        "status": "RESOLVED",
+        "ruleset_id": "npb-2026-cs-central-game-end-v1",
+        "regulation_innings": 9,
+        "max_innings": 12,
+        "tie_at_limit": true,
+        "walkoff_allowed": true,
+        "tie_replay": false,
+        "clinch_tie_called_game": true,
+        "source_ref": "game-end-rules"
+      }
+    },
+    {
+      "schedule_slot_id": "central-final-3",
+      "source_fixture_id": null,
+      "official_game_id": null,
+      "official_url": null,
+      "identity_source_ref": null,
+      "stage": "FINAL",
+      "game_number": 3,
+      "date": "2026-10-16",
+      "scheduled_at": "2026-10-16T09:00:00Z",
+      "time_source_ref": "cs-schedule",
+      "venue": {
+        "id": "koshien",
+        "name": "阪神甲子園球場",
+        "source_ref": "cs-schedule"
+      },
+      "venue_slot": "CENTRAL_RANK_1_HOME",
+      "home_slot": "CENTRAL_RANK_1",
+      "away_slot": "CENTRAL_FIRST_WINNER",
+      "schedule_status": "SCHEDULED",
+      "requires_special_format": false,
+      "schedule_source_ref": "cs-schedule",
+      "game_rules": {
+        "status": "RESOLVED",
+        "ruleset_id": "npb-2026-cs-central-game-end-v1",
+        "regulation_innings": 9,
+        "max_innings": 12,
+        "tie_at_limit": true,
+        "walkoff_allowed": true,
+        "tie_replay": false,
+        "clinch_tie_called_game": true,
+        "source_ref": "game-end-rules"
+      }
+    },
+    {
+      "schedule_slot_id": "central-final-4",
+      "source_fixture_id": null,
+      "official_game_id": null,
+      "official_url": null,
+      "identity_source_ref": null,
+      "stage": "FINAL",
+      "game_number": 4,
+      "date": "2026-10-17",
+      "scheduled_at": "2026-10-17T05:00:00Z",
+      "time_source_ref": "cs-schedule",
+      "venue": {
+        "id": "koshien",
+        "name": "阪神甲子園球場",
+        "source_ref": "cs-schedule"
+      },
+      "venue_slot": "CENTRAL_RANK_1_HOME",
+      "home_slot": "CENTRAL_RANK_1",
+      "away_slot": "CENTRAL_FIRST_WINNER",
+      "schedule_status": "SCHEDULED",
+      "requires_special_format": false,
+      "schedule_source_ref": "cs-schedule",
+      "game_rules": {
+        "status": "RESOLVED",
+        "ruleset_id": "npb-2026-cs-central-game-end-v1",
+        "regulation_innings": 9,
+        "max_innings": 12,
+        "tie_at_limit": true,
+        "walkoff_allowed": true,
+        "tie_replay": false,
+        "clinch_tie_called_game": true,
+        "source_ref": "game-end-rules"
+      }
+    },
+    {
+      "schedule_slot_id": "central-final-5",
+      "source_fixture_id": null,
+      "official_game_id": null,
+      "official_url": null,
+      "identity_source_ref": null,
+      "stage": "FINAL",
+      "game_number": 5,
+      "date": "2026-10-18",
+      "scheduled_at": "2026-10-18T05:00:00Z",
+      "time_source_ref": "cs-schedule",
+      "venue": {
+        "id": "koshien",
+        "name": "阪神甲子園球場",
+        "source_ref": "cs-schedule"
+      },
+      "venue_slot": "CENTRAL_RANK_1_HOME",
+      "home_slot": "CENTRAL_RANK_1",
+      "away_slot": "CENTRAL_FIRST_WINNER",
+      "schedule_status": "SCHEDULED",
+      "requires_special_format": false,
+      "schedule_source_ref": "cs-schedule",
+      "game_rules": {
+        "status": "RESOLVED",
+        "ruleset_id": "npb-2026-cs-central-game-end-v1",
+        "regulation_innings": 9,
+        "max_innings": 12,
+        "tie_at_limit": true,
+        "walkoff_allowed": true,
+        "tie_replay": false,
+        "clinch_tie_called_game": true,
+        "source_ref": "game-end-rules"
+      }
+    },
+    {
+      "schedule_slot_id": "central-final-6",
+      "source_fixture_id": null,
+      "official_game_id": null,
+      "official_url": null,
+      "identity_source_ref": null,
+      "stage": "FINAL",
+      "game_number": 6,
+      "date": "2026-10-19",
+      "scheduled_at": "2026-10-19T09:00:00Z",
+      "time_source_ref": "cs-schedule",
+      "venue": {
+        "id": "koshien",
+        "name": "阪神甲子園球場",
+        "source_ref": "cs-schedule"
+      },
+      "venue_slot": "CENTRAL_RANK_1_HOME",
+      "home_slot": "CENTRAL_RANK_1",
+      "away_slot": "CENTRAL_FIRST_WINNER",
+      "schedule_status": "SCHEDULED",
+      "requires_special_format": false,
+      "schedule_source_ref": "cs-schedule",
+      "game_rules": {
+        "status": "RESOLVED",
+        "ruleset_id": "npb-2026-cs-central-game-end-v1",
+        "regulation_innings": 9,
+        "max_innings": 12,
+        "tie_at_limit": true,
+        "walkoff_allowed": true,
+        "tie_replay": false,
+        "clinch_tie_called_game": true,
+        "source_ref": "game-end-rules"
+      }
+    },
+    {
+      "schedule_slot_id": "central-final-7",
+      "source_fixture_id": null,
+      "official_game_id": null,
+      "official_url": null,
+      "identity_source_ref": null,
+      "stage": "FINAL",
+      "game_number": 7,
+      "date": "2026-10-20",
+      "scheduled_at": "2026-10-20T09:00:00Z",
+      "time_source_ref": "final-tickets",
+      "venue": {
+        "id": "koshien",
+        "name": "阪神甲子園球場",
+        "source_ref": "final-tickets"
+      },
+      "venue_slot": "CENTRAL_RANK_1_HOME",
+      "home_slot": "CENTRAL_RANK_1",
+      "away_slot": "CENTRAL_FIRST_WINNER",
+      "schedule_status": "SCHEDULED",
+      "requires_special_format": true,
+      "schedule_source_ref": "cs-format",
+      "game_rules": {
+        "status": "RESOLVED",
+        "ruleset_id": "npb-2026-cs-central-game-end-v1",
+        "regulation_innings": 9,
+        "max_innings": 12,
+        "tie_at_limit": true,
+        "walkoff_allowed": true,
+        "tie_replay": false,
+        "clinch_tie_called_game": true,
+        "source_ref": "game-end-rules"
+      }
+    }
+  ],
+  "reserve_days": [
+    {
+      "stage": "FIRST",
+      "date": "2026-10-13"
+    },
+    {
+      "stage": "FINAL",
+      "date": "2026-10-20",
+      "condition": "NORMAL_SIX_GAME_FORMAT"
+    },
+    {
+      "stage": "FINAL",
+      "date": "2026-10-21"
+    }
+  ],
+  "verification_notes": [
+    "8/24改定通知を優先。旧日程表では10/20は予備日だが、特例7試合制の場合は第7戦。",
+    "ゲーム差・勝率の適用値はFinal相手とRegular最終成績確定後に公式確認する。",
+    "開始予定時刻・順延方針・甲子園は球団公式チケットページで確認。",
+    "個別CS試合IDは未提供のためnull。検証済み日程slotから内部identityを生成。2026 CS終了規定を接続し、Final相手はFirst勝者確定までTBD。"
+  ],
+  "game_end_rules_review": {
+    "status": "LIVE_RULES_CONNECTED_PROBABILITY_PENDING",
+    "source_ref": "game-end-rules",
+    "verified_at": "2026-10-09T18:11:28Z",
+    "verified_conditions": {
+      "max_innings": 12,
+      "tie_at_limit": true,
+      "tie_replay": false,
+      "clinch_called_game": [
+        "12回表終了時に同点で後攻球団の勝ち上がりが確定する場合は12回裏を行わない。",
+        "12回裏をビハインドで迎えた後攻球団が同点に追い付き、勝ち上がりが確定する場合はその時点で終了。"
+      ]
+    },
+    "reason": "Game入力と正式登録は共通resolverで12回引分・Series state依存の特殊コールドを判定。現行の固定試合確率モデルは特殊コールド未対応のため突破確率は準備中。複数得点で同点を飛び越える入力は正式スコアを推測せず公式結果確認へ保留。"
+  }
+}
