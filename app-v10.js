@@ -566,9 +566,10 @@ importObservedLearning=async function(file){
   if(!phaseIsRegular()&&[...data.entries,...(Array.isArray(data.steals)?data.steals:[])].some(entry=>entry&&(entry.phase&&entry.phase!=='POSTSEASON'||entry.season&&entry.season!==data.season)))throw new Error('別season / phaseの観戦入力が含まれています');
   const valid=new Set([...LEARNING_EVENTS,null]),entries=data.entries.slice(-5000).filter(entry=>entry&&valid.has(entry.outcome)).map(entry=>({id:String(entry.id||`${Date.now()}-${Math.random()}`).slice(0,80),recordedAt:num(entry.recordedAt)||Date.now(),gameDate:/^\d{4}-\d{2}-\d{2}$/.test(entry.gameDate)?entry.gameDate:localDateValue(),team:String(entry.team||'').slice(0,30),defTeam:String(entry.defTeam||'').slice(0,30),batterKey:String(entry.batterKey||'').slice(0,100),pitcherKey:String(entry.pitcherKey||'').slice(0,100),batterName:String(entry.batterName||'').slice(0,80),pitcherName:String(entry.pitcherName||'').slice(0,80),result:String(entry.result||''),outcome:entry.outcome}));
   const steals=Array.isArray(data.steals)?data.steals.slice(-2000).map(entry=>({id:String(entry.id||`sb-${Date.now()}-${Math.random()}`).slice(0,80),recordedAt:num(entry.recordedAt)||Date.now(),gameDate:/^\d{4}-\d{2}-\d{2}$/.test(entry.gameDate)?entry.gameDate:localDateValue(),team:String(entry.team||'').slice(0,30),runnerKey:String(entry.runnerKey||'').slice(0,100),runnerName:String(entry.runnerName||'').slice(0,80),fromBase:clamp(num(entry.fromBase),1,3),success:Boolean(entry.success)})):[];
-  if(!phaseIsRegular()){
-    for(const [rows,original] of [[entries,data.entries.slice(-5000).filter(entry=>entry&&valid.has(entry.outcome))],[steals,Array.isArray(data.steals)?data.steals.slice(-2000):[]]])rows.forEach((row,i)=>Object.assign(row,postseasonObservationIdentity(original[i])));
-  }
+  for(const [rows,original] of [[entries,data.entries.slice(-5000).filter(entry=>entry&&valid.has(entry.outcome))],[steals,Array.isArray(data.steals)?data.steals.slice(-2000):[]]])rows.forEach((row,i)=>{
+    if(phaseIsRegular()){if(typeof original[i]?.baselineKey==='string')row.baselineKey=original[i].baselineKey}
+    else Object.assign(row,postseasonObservationIdentity(original[i]));
+  });
   if(!confirm(`現在の観戦データを、読み込んだ ${entries.length}打席・盗塁${steals.length}件で置き換えますか？`))return;observedLearning={version:1,...(phaseIsRegular()?{}:{season:phaseSessions.current.context.season,phase:'POSTSEASON'}),baselineKey:currentBaselineKey(),startedAt:num(data.startedAt)||Date.now(),enabled:data.enabled!==false,capture:data.capture!==false,entries,steals};saveObservedLearning();history=[];redoHistory=[];syncHistoryControls();scheduleUpdate();setLastAction('観戦データを読み込みました');
 };
 ensureObservationShape();

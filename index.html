@@ -456,8 +456,8 @@ a{color:#b7cfff}
 </dialog>
 <div id="toast" class="toast"></div>
 
-<script src="./rosters.js?v=production-20260923-1"></script>
-<script src="./stats-v13.js?v=production-20260923-1"></script>
+<script src="./rosters.js?v=regular-final-20261008-1"></script>
+<script src="./stats-v13.js?v=regular-final-20261008-1"></script>
 <script>
 // BEGIN EMBEDDED phase-runtime.js
 // Pure phase/session boundary. Embedded in index.html for the existing offline shell.
@@ -981,7 +981,13 @@ function phaseIsRegular(){return phaseSessions.current.context.phase === "REGULA
 function sessionLater(callback,delay){const token=phaseSessions.capture();return setTimeout(()=>{if(phaseSessions.isCurrent(token))callback()},delay)}
 function predictionContext(){const layer=phaseSessions.current.postseasonLayer;return {...TigersPhase.createPredictionContext({phaseContext:phaseSessions.current.context,dataset:phaseIsRegular()?stats:layer?.dataset||null,prior:layer?.prior||null,officialPostseasonData:layer?.official||null,learning:predictionLearning(),purpose:layer?.purpose||'PRODUCTION'}),sessionToken:phaseSessions.capture()}}
 function predictionLearning(){
-  const session=phaseSessions.current;if(phaseIsRegular()||!session.postseasonLayer)return observedLearning;
+  const session=phaseSessions.current;
+  if(phaseIsRegular()){
+    if(!observedLearning)return observedLearning;
+    const current=entry=>!entry.baselineKey||entry.baselineKey===currentBaselineKey();
+    return {...observedLearning,entries:(observedLearning.entries||[]).filter(current),steals:(observedLearning.steals||[]).filter(current)};
+  }
+  if(!session.postseasonLayer)return observedLearning;
   if(session.postseasonLearningRevision!==session.revision){session.postseasonLayer=TigersPostseason.withObservations(session.postseasonLayer,observedLearning);session.postseasonLearningRevision=session.revision}
   return session.postseasonLayer.effectiveLearning;
 }
@@ -1113,9 +1119,11 @@ function ensureLearningBaseline(notify=false){
   if(!phaseIsRegular())return false; // Prior changes never discard raw Postseason observations.
   if(!observedLearning)observedLearning=blankObservedLearning();
   if(observedLearning.baselineKey===currentBaselineKey())return false;
-  const discarded=observedLearning.entries?.length||0;
-  observedLearning=blankObservedLearning();saveObservedLearning();
-  if(notify&&discarded)toast(`新しい基準データへ切替：旧学習 ${discarded}打席を破棄しました`);
+  const previousBaseline=observedLearning.baselineKey||'legacy-unknown-baseline';
+  const retained=observedLearning.entries?.length||0;
+  for(const field of ['entries','steals'])observedLearning[field]=(observedLearning[field]||[]).map(entry=>({...entry,baselineKey:entry.baselineKey||previousBaseline}));
+  observedLearning.baselineKey=currentBaselineKey();saveObservedLearning();
+  if(notify&&retained)toast(`新しい基準データへ切替：旧観戦 ${retained}打席は保存し、学習計算から除外しました`);
   return true;
 }
 function loadObservedLearning(){
@@ -1950,18 +1958,22 @@ function updateStatus(){
   }
 }
 function saveStats(){try{phaseSessions.touch();phaseSessions.write('stats',stats)}catch(e){toast('保存容量エラー')}}
-function stableBuiltinStats(){
+function stableBuiltinStats(identitySource=null){
+  const savedGame=phaseSessions.current.gameState||{};
+  const retainedIDs=new Set([...(savedGame.tLine||[]),...(savedGame.oLine||[]),savedGame.tPitcher,savedGame.oPitcher,...Object.values(savedGame.baseRunners||{}),...Object.values(savedGame.savedOpponentLineups||{}).flat(),...Object.values(phaseStorage().read('opponentLineups',{})).flat(),...Object.keys(savedGame.pitchLoads||{})]);
   const source=window.NPB_2026_STATS_SNAPSHOT;if(!source?.bat?.length||!source?.pit?.length)return null;
   const stable=(players,type)=>players.map(player=>{
     const existing=(type==='bat'?initialModel.byBat[player.team]:initialModel.byPit[player.team])?.find(candidate=>compactName(displayName(candidate))===compactName(player.name));
-    return existing?{...player,id:existing.id}:{...player};
+    const savedIdentity=identitySource?.[type]?.find(candidate=>candidate.team===player.team&&(candidate.id===player.id||candidate.id===existing?.id));
+    return {...player,id:retainedIDs.has(player.id)?player.id:(savedIdentity?.id||existing?.id||player.id)};
   });
   return {bat:stable(source.bat,'bat'),pit:stable(source.pit,'pit'),updated:source.updated,snapshotDate:source.snapshotDate,parks:source.parks,platoon:source.platoon,builtin:true};
 }
 function loadStats(){
   if(!phaseIsRegular()){stats=null;model=null;return}
-  const builtin=stableBuiltinStats();let saved=null;
+  let saved=null;
   try{const x=phaseStorage().getItem('stats')||phaseStorage().getItem('statsV4')||phaseStorage().getItem('statsV3');if(x)saved=JSON.parse(x)}catch(e){}
+  const builtin=stableBuiltinStats(saved);
   stats=saved?.bat?.length&&saved?.pit?.length&&saved.snapshotDate>=builtin?.snapshotDate?saved:(builtin||saved);
   buildModel();updateStatus();refreshPlayerUI();
 }
@@ -2085,7 +2097,7 @@ loadStats();loadObservedLearning();update();
 if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js',{type:'module'}).catch(()=>{}));
 </script>
 <script src="./app-v10.js?v=postseason-v5.0.0"></script>
-<script type="module" src="./league-simulator-ui.mjs?v=production-20260923-1"></script>
+<script type="module" src="./league-simulator-ui.mjs?v=regular-final-20261008-1"></script>
 <script>
 // BEGIN EMBEDDED app-mode-navigation.js
 (function(root) {
