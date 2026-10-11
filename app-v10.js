@@ -52,12 +52,18 @@ function teamAveragePitcher(team){
 }
 function hydrateRoster(target){
   if(!target?.byBat||!target?.byPit)return;
+  const saved=phaseIsRegular()?phaseSessions.current.gameState||{}:{};
+  const retainedIDs=new Set([...(saved.tLine||[]),...(saved.oLine||[]),saved.tPitcher,saved.oPitcher,...Object.values(saved.baseRunners||{}),...Object.values(saved.savedOpponentLineups||{}).flat(),...Object.values(phaseStorage().read('opponentLineups',{})).flat(),...Object.keys(saved.pitchLoads||{})]);
   for(const [team,players] of Object.entries(rosterSnapshot.rosters||{})){
     target.byBat[team]=target.byBat[team]||[];
     target.byPit[team]=target.byPit[team]||[];
     for(const source of players){
       const type=source.position==='投手'?'pit':'bat',arr=type==='pit'?target.byPit[team]:target.byBat[team];
-      if(arr.some(player=>samePlayerName(displayName(player),source.name)))continue;
+      if(arr.some(player=>player.id===source.id))continue;
+      // Keep an explicitly saved official roster ID even when a differently
+      // identified stats row has the same name. Do not infer an ID equivalence
+      // or duplicate official count rows; this remains a roster fallback.
+      if(!retainedIDs.has(source.id)&&arr.some(player=>samePlayerName(displayName(player),source.name)))continue;
       if(type==='pit')arr.push({...source,team,pit:INITIAL_TEAM_PIT[team]||1,role:'投手',rosterFallback:true});
       else arr.push({...source,team,off:INITIAL_TEAM_BAT[team]||1,spd:1,role:source.position,rosterFallback:true});
     }
@@ -974,14 +980,13 @@ const regularBaselineLabel=currentBaselineLabel;
 currentBaselineLabel=function(){const layer=phaseSessions.current.postseasonLayer;return phaseIsRegular()?regularBaselineLabel():layer?(layer.purpose==='TEST'?'Postseason TEST prior':'Postseason固定prior'):'最終データ確定後に予測可能'};
 function restoreSelection(select,id){
   if(!select||typeof id!=='string')return;
-  if(!phaseIsRegular()&&id&&![...select.options].some(option=>option.value===id)){
-    const option=document.createElement('option');option.value=id;option.textContent='未収録の選手';select.appendChild(option);
+  if(id&&![...select.options].some(option=>option.value===id)){
+    const option=document.createElement('option');option.value=id;option.textContent=phaseIsRegular()?'保存済み選手（成績未接続）':'未収録の選手';select.appendChild(option);
   }
   if([...select.options].some(option=>option.value===id))select.value=id;
 }
 const regularRunnerOptions=refreshRunnerOptions;
 refreshRunnerOptions=function(){
-  if(phaseIsRegular())return regularRunnerOptions();
   const runners={...baseRunners};regularRunnerOptions();
   for(const base of [1,2,3])if(runners[base]){restoreSelection($('runner'+base),runners[base]);baseRunners[base]=runners[base]}
 };

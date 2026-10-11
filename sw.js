@@ -1,4 +1,4 @@
-// Regular final-data release 2026-10-11; storage is retained on update.
+// Release readiness 2026-10-11: availability labels updated; storage is retained.
 import {RELEASE_CACHE,CORE_ASSETS} from './postseason-release-assets.mjs';
 import {validateScheduleManifest,SCHEDULE_URL} from './postseason-schedule.mjs';
 import {FINAL_PRIOR_CATALOG_URL,loadProductionFinalPrior} from './postseason-final-prior.mjs';

@@ -50,6 +50,6 @@ export function presentSeries({series, snapshot = null, result = null, calculati
     played: s ? `${s.physicalGamesPlayed}試合` : '未確定', maximum: rules ? `${rules.maxPhysicalGames}試合` : '未確定',
     winsNeeded: rules ? `${rules.winsNeeded}勝（アドバンテージ込み）` : '未確定',
     probability, probabilityLabel: ready ? (purpose === 'TEST' ? '突破確率（TEST）' : '突破確率') : pending ? '再計算中' : snapshot ? '未計算' : '確率計算準備中',
-    probabilityNote: ready ? '' : status === 'UNCONFIRMED' ? '対戦カード確定後に計算します。' : snapshot ? '最新のシリーズ状況で再計算します。' : 'レギュラーシーズン最終データ確定後に計算します。',
+    probabilityNote: ready ? '' : status === 'UNCONFIRMED' ? '対戦カード確定後に計算します。' : snapshot ? '最新のシリーズ状況で再計算します。' : '確率計算の準備状況は「試合」画面で確認できます。',
     nextGame: presentNextGame(nextGame, r, teamNames)});
 }
