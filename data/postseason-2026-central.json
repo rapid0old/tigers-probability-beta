@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "manifest_id": "npb-2026-central-cs-reviewed",
-  "source_revision": 3,
+  "source_revision": 4,
   "purpose": "PRODUCTION",
   "season": 2026,
   "phase": "POSTSEASON",
@@ -36,7 +36,7 @@
       "url": "https://npb.jp/bis/2026/stats/std_c.html",
       "type": "NPB_OFFICIAL",
       "source_revision": "final:2026-10-08",
-      "verified_at": "2026-10-09T17:51:29Z"
+      "verified_at": "2026-10-14T09:00:28Z"
     },
     "regular-schedule": {
       "url": "https://npb.jp/games/2026/schedule_10.html",
@@ -67,6 +67,24 @@
       "type": "NPB_OFFICIAL",
       "source_revision": "final:2026-10-08",
       "verified_at": "2026-10-09T17:51:29Z"
+    },
+    "cs-first-result-1": {
+      "url": "https://npb.jp/scores/2026/1010/g-db-01/index.html",
+      "type": "NPB_OFFICIAL",
+      "source_revision": "FINAL:2026-10-10:Giants-1:BayStars-2",
+      "verified_at": "2026-10-14T09:00:28Z"
+    },
+    "cs-first-result-2": {
+      "url": "https://npb.jp/scores/2026/1011/g-db-02/index.html",
+      "type": "NPB_OFFICIAL",
+      "source_revision": "FINAL:2026-10-11:Giants-1:BayStars-4",
+      "verified_at": "2026-10-14T09:00:28Z"
+    },
+    "final-confirmed-schedule": {
+      "url": "https://npb.jp/games/2026/schedule_10_detail.html",
+      "type": "NPB_OFFICIAL",
+      "source_revision": "reviewed:2026-10-14:Tigers-BayStars:Final-1-6",
+      "verified_at": "2026-10-14T09:00:28Z"
     }
   },
   "participants": {
@@ -90,10 +108,17 @@
     },
     "CENTRAL_FIRST_WINNER": {
       "label": "First Stage勝者",
-      "status": "TBD",
-      "team_id": null,
-      "source_ref": null
+      "status": "CONFIRMED",
+      "team_id": "BayStars",
+      "source_ref": "cs-first-result-2"
     }
+  },
+  "first_stage_result_review": {
+    "winner": "BayStars",
+    "wins": 2,
+    "losses": 0,
+    "source_refs": ["cs-first-result-1", "cs-first-result-2"],
+    "verified_at": "2026-10-14T09:00:28Z"
   },
   "series": {
     "FIRST": {
@@ -108,7 +133,13 @@
       "higher_slot": "CENTRAL_RANK_1",
       "lower_slot": "CENTRAL_FIRST_WINNER",
       "source_ref": "cs-format",
-      "qualification": null,
+      "qualification": {
+        "higherTeamId": "Tigers",
+        "lowerTeamId": "BayStars",
+        "gamesBehind": 7.5,
+        "challengerRegularWinPct": 0.5071428571428571,
+        "source_ref": "regular-standings"
+      },
       "verified_format": {
         "mode": "NORMAL",
         "max_physical_games": 6,
@@ -260,18 +291,18 @@
       "game_number": 1,
       "date": "2026-10-14",
       "scheduled_at": "2026-10-14T09:00:00Z",
-      "time_source_ref": "cs-schedule",
+      "time_source_ref": "final-confirmed-schedule",
       "venue": {
         "id": "koshien",
         "name": "阪神甲子園球場",
-        "source_ref": "cs-schedule"
+        "source_ref": "final-confirmed-schedule"
       },
       "venue_slot": "CENTRAL_RANK_1_HOME",
       "home_slot": "CENTRAL_RANK_1",
       "away_slot": "CENTRAL_FIRST_WINNER",
       "schedule_status": "SCHEDULED",
       "requires_special_format": false,
-      "schedule_source_ref": "cs-schedule",
+      "schedule_source_ref": "final-confirmed-schedule",
       "game_rules": {
         "status": "RESOLVED",
         "ruleset_id": "npb-2026-cs-central-game-end-v1",

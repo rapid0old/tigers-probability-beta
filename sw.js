@@ -1,4 +1,4 @@
-// Release readiness 2026-10-11: availability labels updated; storage is retained.
+// 2026-10-14 Final opener: verified DeNA participant; retain all saved data.
 import {RELEASE_CACHE,CORE_ASSETS} from './postseason-release-assets.mjs';
 import {validateScheduleManifest,SCHEDULE_URL} from './postseason-schedule.mjs';
 import {FINAL_PRIOR_CATALOG_URL,loadProductionFinalPrior} from './postseason-final-prior.mjs';

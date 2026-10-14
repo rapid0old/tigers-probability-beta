@@ -3,7 +3,7 @@ import {PostseasonSeriesRepository} from './cs-series-store.mjs';
 import {createPregameProbabilityInput} from './postseason-pregame.mjs';
 
 export function createScheduleSelector({root,runtime,storage,testAuthorized=false}) {
-  let manifest=null,selected=null,pending=false,message='',loadEpoch=0,probabilityStatus='Regular最終公式prior未準備';
+  let manifest=null,selected=null,pending=false,message='',loadEpoch=0,priorLoad=null,probabilityStatus='Regular最終公式prior未準備';
   const purpose=runtime.completionPurpose(),cacheKey='tigersProbabilityBeta.2026.POSTSEASON.v1.schedule.'+purpose;
   root.innerHTML=`<label>2026 セ・CS Final 試合<select data-schedule="game" aria-label="CS公式試合"></select></label>
     <p data-schedule="matchup"></p><p data-schedule="details"></p><p data-schedule="status" role="status"></p>
@@ -44,6 +44,10 @@ export function createScheduleSelector({root,runtime,storage,testAuthorized=fals
     selected=games.some(g=>g.schedule_slot_id===selected)?selected:games.find(g=>g.schedule_slot_id===saved?.source?.schedule_slot_id)?.schedule_slot_id||games[0]?.schedule_slot_id||null;
     el('game').value=selected||'';render();return manifest;
   }
+  function connectProductionPrior(){
+    if(!priorLoad)priorLoad=runtime.loadProductionPostseasonPrior().finally(()=>{priorLoad=null});
+    return priorLoad;
+  }
   async function load() {
     const request=++loadEpoch;
     try{
@@ -55,7 +59,7 @@ export function createScheduleSelector({root,runtime,storage,testAuthorized=fals
       catch{message='公式日程を読み込めません：'+error.message;render()}
     }}
     if(purpose==='PRODUCTION'&&runtime.current.context.phase==='POSTSEASON'){
-      try{await runtime.loadProductionPostseasonPrior();probabilityStatus=runtime.getPostseasonProbabilityOptions().prior?(manifest?.games.some(g=>g.game_rules.max_innings>g.game_rules.regulation_innings&&g.game_rules.extra_inning_base_policy!=='EMPTY')?'延長開始時の走者条件の確認待ち（戦績登録は利用可能）':'公式試合接続待ち（終了・延長条件を接続時に確認）'):'Regular最終公式prior未準備'}
+      try{await connectProductionPrior();probabilityStatus=runtime.getPostseasonProbabilityOptions().prior?(manifest?.games.some(g=>g.game_rules.max_innings>g.game_rules.regulation_innings&&g.game_rules.extra_inning_base_policy!=='EMPTY')?'延長開始時の走者条件の確認待ち（戦績登録は利用可能）':'公式試合接続待ち（終了・延長条件を接続時に確認）'):'Regular最終公式prior未準備'}
       catch(error){probabilityStatus='final prior接続待ち：'+error.message}
       render();
     }
@@ -72,10 +76,24 @@ export function createScheduleSelector({root,runtime,storage,testAuthorized=fals
   }
   async function bind() {
     if(pending||!manifest||runtime.current.context.phase!=='POSTSEASON')return false;
-    const owner=manifest,slot=selected,token=runtime.capture(),d=describeScheduleSlot(owner,slot);
+    const owner=manifest,slot=selected,d=describeScheduleSlot(owner,slot);
     if(!d.canBind){message=d.reasons.join(' / ');render();return false}
     pending=true;message='接続中';render();
     try{
+      // A real tab click can invalidate an in-flight prior load during the
+      // Series → Game transition. Retry before capturing the binding token;
+      // the prior's own guarded connection may legitimately advance revision.
+      if(owner.purpose==='PRODUCTION'&&!runtime.getPostseasonProbabilityOptions().prior){
+        const beforePrior=runtime.capture();let connected=false;
+        try{
+          connected=await connectProductionPrior();
+          if(!connected&&runtime.isCurrent(beforePrior))connected=await connectProductionPrior();
+        }
+        catch(error){probabilityStatus='final prior接続待ち：'+error.message}
+        if(!connected&&!runtime.isCurrent(beforePrior))return false;
+      }
+      if(manifest!==owner||selected!==slot||runtime.current.context.phase!=='POSTSEASON')return false;
+      const token=runtime.capture();
       const options=runtime.getPostseasonProbabilityOptions(),repository=new PostseasonSeriesRepository({phaseContext:token.context,storage,purpose:owner.purpose});
       const saved=await repository.load(d.series.context.series_id,options);
       const args=await prepareManifestBinding({manifest:owner,slotId:slot,series:saved?.series||null,testAuthorized});
