@@ -1949,12 +1949,17 @@ function applyPlateResult(play){
   if(outs>=3) nextHalf(); else {resetPitchCount();syncOutUI();refreshBatterPosLabels();refreshRunnerOptions();scheduleUpdate()}
 }
 function updateStatus(){
+  const status=$('dataStatus'),heading=document.createElement('strong');
   if(model&&stats?.bat?.length&&stats?.pit?.length){
     const source=stats.builtin?'内蔵公式スナップショット':'端末内の読込データ';
-    $('dataStatus').innerHTML=`<strong>詳細選手モデルON</strong><br>${source}：野手 ${stats.bat.length}人 / 投手 ${stats.pit.length}人<br>基準日：${(stats.snapshotDate||localDateValue(new Date(stats.updated))).replaceAll('-','/')}`;
+    heading.textContent='詳細選手モデルON';
+    status.replaceChildren(heading,document.createElement('br'),
+      document.createTextNode(`${source}：野手 ${stats.bat.length}人 / 投手 ${stats.pit.length}人`),document.createElement('br'),
+      document.createTextNode(`基準日：${String(stats.snapshotDate||localDateValue(new Date(stats.updated))).replaceAll('-','/')}`));
     $('modelBadge').className='badge good';$('modelBadge').textContent='2026詳細選手モデル';
   }else{
-    $('dataStatus').innerHTML='<strong>初期選手モデルON</strong><br>公式詳細データを読み込めない場合の安全なフォールバックです。';
+    heading.textContent='初期選手モデルON';
+    status.replaceChildren(heading,document.createElement('br'),document.createTextNode('公式詳細データを読み込めない場合の安全なフォールバックです。'));
     $('modelBadge').className='badge good';$('modelBadge').textContent='2026初期選手モデル';
   }
 }
@@ -2000,7 +2005,10 @@ function exportData(){
 async function importJson(file){
   const token=phaseSessions.capture();
   if(!phaseIsRegular())throw new Error('Stage 1ではPostseasonの成績import・prior接続は未対応です');
-  const text=await file.text();if(!phaseSessions.isCurrent(token))return;const x=JSON.parse(text);if(x.season!==SEASON||!Array.isArray(x.bat)||!Array.isArray(x.pit))throw new Error('対応する共有データではありません');
+  const text=await file.text();if(!phaseSessions.isCurrent(token))return;const x=JSON.parse(text);if(!x||x.season!==SEASON||!Array.isArray(x.bat)||!Array.isArray(x.pit))throw new Error('対応する共有データではありません');
+  if(x.snapshotDate!=null&&typeof x.snapshotDate!=='string')throw new Error('基準日は文字列で指定してください');
+  const validPlayer=p=>p&&typeof p==='object'&&!Array.isArray(p)&&typeof p.name==='string'&&typeof p.team==='string'&&Object.hasOwn(TEAM_NAME,p.team);
+  if(!x.bat.every(validPlayer)||!x.pit.every(validPlayer))throw new Error('選手データの形式または球団名が正しくありません');
   stats={bat:x.bat,pit:x.pit,updated:x.updated||Date.now(),snapshotDate:x.snapshotDate||localDateValue(),parks:x.parks||window.NPB_2026_STATS_SNAPSHOT?.parks,platoon:x.platoon||window.NPB_2026_STATS_SNAPSHOT?.platoon,builtin:false};saveStats();buildModel();const learningReset=ensureLearningBaseline(false);updateStatus();refreshPlayerUI();scheduleUpdate();toast(`共有データを読み込みました${learningReset?'。旧観戦学習は破棄しました':''}`);
 }
 function setHalf(v,reset=false){
@@ -2047,7 +2055,10 @@ function update(){
   updateProbabilityDock(Number.isFinite(prob)?prob:RP[bases][outs],Number.isFinite(exp)?exp:RE[bases][outs],p);
   $('winModelLabel').textContent=(model?'12球団・詳細選手 4,500試合シミュレーション':'12球団・初期選手 5,500試合シミュレーション')+(observedLearning?.enabled&&learningIndex?.eligible?'＋観戦学習':'');
   const runnerRows=[];for(const [bit,key,label] of [[1,1,'一塁'],[2,2,'二塁'],[4,3,'三塁']]) if(bases&bit) runnerRows.push(`${label}：${runnerLabel(bat,baseRunners[key])||'未設定'}`);
-  $('statusText').innerHTML=`<b>${$('inning').value}回${half==='top'?'表':'裏'}・${TEAM_NAME[bat]}の攻撃</b><br>阪神 ${num($('tigersScore').value)} − ${num($('oppScore').value)} ${TEAM_NAME[opp]}<br>${outs}アウト・B${balls}-S${strikes}・${runnerRows.length?runnerRows.join(' / '):'走者なし'}`;
+  const statusHeading=document.createElement('b');statusHeading.textContent=`${$('inning').value}回${half==='top'?'表':'裏'}・${TEAM_NAME[bat]}の攻撃`;
+  $('statusText').replaceChildren(statusHeading,document.createElement('br'),
+    document.createTextNode(`阪神 ${num($('tigersScore').value)} − ${num($('oppScore').value)} ${TEAM_NAME[opp]}`),document.createElement('br'),
+    document.createTextNode(`${outs}アウト・B${balls}-S${strikes}・${runnerRows.length?runnerRows.join(' / '):'走者なし'}`));
 }
 loadSavedOpponentLineups();setupStatic();
 $('topBtn').onclick=()=>{pushHistory();setHalf('top',true)};$('botBtn').onclick=()=>{pushHistory();setHalf('bottom',true)};

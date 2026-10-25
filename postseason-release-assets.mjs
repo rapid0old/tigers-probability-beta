@@ -1,5 +1,5 @@
 export const RELEASE_VERSION='5.0.0';
-export const RELEASE_CACHE='tigers-probability-beta-v5.0.0-702091b71aba9450';
+export const RELEASE_CACHE='tigers-probability-beta-v5.0.0-0c3193925cc412d8';
 // Embedded phase/navigation/model modules travel inside index.html; only runtime fetches go here.
 export const CORE_ASSETS=Object.freeze([
   './','./index.html','./manifest.webmanifest','./icon.svg','./v10.css?v=postseason-v5.0.0',
