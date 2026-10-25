@@ -1,3 +1,4 @@
+// Security update 2026-10-26: refresh worker for shared JSON XSS fixes.
 // 2026-10-14 Final opener: verified DeNA participant; retain all saved data.
 import {RELEASE_CACHE,CORE_ASSETS} from './postseason-release-assets.mjs';
 import {validateScheduleManifest,SCHEDULE_URL} from './postseason-schedule.mjs';
